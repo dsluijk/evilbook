@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
 
-export const DEFAULT_CAPACITY = 500;
 export const MAX_TEXT_LENGTH = 2000;
 export const MAX_AUTHOR_LENGTH = 40;
 
@@ -8,16 +7,11 @@ export type CursorResult = { ok: true; records: any[] } | { ok: false };
 
 /**
  * An append-only log of records. A record is either a posted message or a
- * delete naming the message it retires — deleting never removes anything, so a
- * cursor pointing at a record stays valid for as long as the record is retained.
+ * delete naming the message it retires. Nothing is ever removed — not by a
+ * delete, and not by age — so a cursor stays valid for the life of the process.
  */
 export class MessageStore {
   #records: any[] = [];
-  readonly #capacity: number;
-
-  constructor(capacity: number = DEFAULT_CAPACITY) {
-    this.#capacity = capacity;
-  }
 
   get cursor(): string | null {
     return this.#records.at(-1)?.id ?? null;
@@ -39,7 +33,7 @@ export class MessageStore {
   }
 
   /** Retires a live message. Returns null — appending nothing — if it is
-   *  unknown, already deleted, or has been evicted. */
+   *  unknown or already deleted. */
   delete(target: string, author: string): any | null {
     if (this.live(target) === undefined) return null;
 
@@ -74,9 +68,6 @@ export class MessageStore {
 
   #push(record: any): any {
     this.#records.push(record);
-    if (this.#records.length > this.#capacity) {
-      this.#records.splice(0, this.#records.length - this.#capacity);
-    }
     return record;
   }
 

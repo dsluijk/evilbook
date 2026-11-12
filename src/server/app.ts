@@ -5,12 +5,7 @@ import { fileURLToPath } from "node:url";
 
 import { WebSocketServer, type WebSocket } from "ws";
 
-import {
-  DEFAULT_CAPACITY,
-  MAX_AUTHOR_LENGTH,
-  MAX_TEXT_LENGTH,
-  MessageStore,
-} from "./store.ts";
+import { MAX_AUTHOR_LENGTH, MAX_TEXT_LENGTH, MessageStore } from "./store.ts";
 import { startChatter, type ChatterOptions } from "./villains.ts";
 
 const HISTORY_LIMIT = 100;
@@ -22,7 +17,6 @@ const DEFAULT_AUTHOR = "anon";
 export const RESET_CLOSE_CODE = 4000;
 
 export type ChatServerOptions = {
-  capacity?: number;
   author?: string;
   /** Villains post into the log at random, as if other people were chatting.
    *  Off unless given. */
@@ -92,7 +86,7 @@ async function serveStatic(req: IncomingMessage, res: ServerResponse): Promise<v
 }
 
 export function createChatServer(options: ChatServerOptions = {}): ChatServer {
-  const store = new MessageStore(options.capacity ?? DEFAULT_CAPACITY);
+  const store = new MessageStore();
   const author =
     (options.author ?? "").trim().slice(0, MAX_AUTHOR_LENGTH) || DEFAULT_AUTHOR;
   const clients = new Set<WebSocket>();

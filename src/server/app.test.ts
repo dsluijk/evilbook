@@ -12,7 +12,7 @@ let app: ChatServer;
 let port: number;
 
 before(async () => {
-  app = createChatServer({ capacity: 5, author: AUTHOR });
+  app = createChatServer({ author: AUTHOR });
   await new Promise<void>((resolve) => app.server.listen(0, resolve));
   port = (app.server.address() as AddressInfo).port;
 });
@@ -149,24 +149,6 @@ test("an id the server never issued is answered by hanging up", async () => {
 
   assert.equal(await closed(client.socket), RESET_CLOSE_CODE);
   assert.deepEqual(client.frames, [], "a doomed socket is sent no backlog at all");
-});
-
-test("a cursor whose message has been evicted is answered by hanging up", async () => {
-  const sender = connect("");
-  await opened(sender.socket);
-  await sender.waitFor((frames) => frames.some((f) => f.type === "sync"));
-
-  const cursor = app.store.cursor!;
-  const flood = 12;
-  for (let i = 0; i < flood; i++) sender.socket.send(JSON.stringify({ type: "send", text: `x${i}` }));
-  await sender.waitFor((frames) => frames.filter((f) => f.type === "message").length >= flood);
-
-  const stale = connect(`?since=${cursor}`);
-  assert.equal(await closed(stale.socket), RESET_CLOSE_CODE);
-  assert.deepEqual(stale.frames, []);
-
-  sender.socket.close();
-  await closed(sender.socket);
 });
 
 test("GET /api/messages returns history paired with the cursor to resume from", async () => {

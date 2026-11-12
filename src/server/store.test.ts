@@ -67,20 +67,6 @@ test("an id we never issued is rejected", () => {
   assert.deepEqual(store.after("11111111-2222-3333-4444-555555555555"), { ok: false });
 });
 
-test("a cursor whose message has been evicted is rejected rather than silently truncated", () => {
-  const store = new MessageStore(5);
-  const stale = store.append("a", "first");
-  for (let i = 0; i < 20; i++) store.append("a", `m${i}`);
-
-  assert.equal(store.size, 5);
-  assert.deepEqual(store.after(stale.id), { ok: false });
-
-  const oldest = store.recent(5)[0]!;
-  const result = store.after(oldest.id);
-  assert.ok(result.ok);
-  assert.equal(result.records.length, 4);
-});
-
 test("recent() returns the newest messages, oldest first", () => {
   const store = new MessageStore();
   for (let i = 1; i <= 10; i++) store.append("a", `m${i}`);
@@ -196,17 +182,13 @@ test("recent() counts surviving messages, never delete records", () => {
   );
 });
 
-test("eviction never resurrects a deleted message", () => {
-  const store = new MessageStore(4);
-  const doomed = store.append("a", "gone");
-  store.delete(doomed.id, "a");
+test("nothing is ever dropped, however long the log grows", () => {
+  const store = new MessageStore();
+  const first = store.append("a", "first");
+  for (let i = 0; i < 2000; i++) store.append("a", `m${i}`);
 
-  // Push until the delete record itself has aged out of the buffer.
-  for (let i = 0; i < 20; i++) store.append("a", `m${i}`);
-
-  assert.equal(store.size, 4);
-  assert.ok(
-    !store.recent(100).some((m) => m.id === doomed.id),
-    "the message is evicted at or before its own delete record, so it cannot come back",
-  );
+  assert.equal(store.size, 2001);
+  const result = store.after(first.id);
+  assert.ok(result.ok);
+  assert.equal(result.records.length, 2000);
 });

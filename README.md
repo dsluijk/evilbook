@@ -73,25 +73,18 @@ client showing something the server knows is deleted. It also means a replay res
 itself: records arrive in order, so a message followed by its delete renders and then
 unrenders, landing on exactly the resolved set.
 
-Deletes are idempotent and unordered-safe by construction. An unknown, already-deleted or
-evicted target appends nothing, and a delete whose target the client never rendered is a
-no-op rather than an error. Eviction cannot resurrect anything either: a delete record is
-always appended _after_ its target, and the buffer drops from the front, so the message
-ages out first.
+Deletes are idempotent and unordered-safe by construction. An unknown or already-deleted
+target appends nothing, and a delete whose target the client never rendered is a no-op
+rather than an error.
 
 Who may delete what is a placeholder — `canDelete()` in `src/server/app.ts` returns true
 for everyone. Every socket in a deployment posts under the same server-configured author,
 so there is nothing yet to distinguish one client's messages from another's; that function
 is the seam where per-identity ownership lands.
 
-One consequence worth knowing: a cursor is only usable while the message it names is
-still retained. With sequential ids the server could reason about ids it no longer
-held; now an evicted cursor is simply not found. The outcome is the same — hung up on,
-then replayed — but it is reached by lookup rather than by arithmetic.
-
-A restart lands in the same place. History lives in memory, so a fresh process holds no
-message any old cursor could name — the lookup misses, and the client is told it fell
-too far behind. One failure, one answer, whatever the cause.
+The log is never trimmed, so a cursor stays usable for the life of the process. A restart
+is the one way to lose it: history lives in memory, so a fresh process holds no message
+any old cursor could name — the lookup misses, the client is hung up on, and it replays.
 
 ### Why the cursor is a query param, not a header
 
@@ -108,7 +101,7 @@ All of this lives in [`src/client/connection.ts`](src/client/connection.ts):
 | Socket closes                       | Reconnect with exponential backoff (500ms → 15s, ±20% jitter)  |
 | Network returns / tab refocused     | Skip the remaining backoff and retry immediately               |
 | Connection dies without closing     | A 60s silence watchdog forces the close the network never sent |
-| Server restarted, or cursor evicted | Closed with `4000` → drop the cursor, reconnect, replay        |
+| Server restarted                    | Closed with `4000` → drop the cursor, reconnect, replay        |
 | A message was deleted while away    | The backlog carries the delete record; the client unrenders it |
 | Replayed record already applied     | Dropped — ids already applied are tracked in a set             |
 
@@ -121,8 +114,7 @@ against).
 Receive-only resilience. Outgoing messages are **not** queued while offline — the
 composer is disabled instead, so the UI never accepts text it would drop. History is
 in-memory and does not survive a restart; the `4000` close is what makes that safe
-rather than confusing. Deletes are not moderation — `canDelete()` is a stub, and history
-is retained only until it is evicted.
+rather than confusing. Deletes are not moderation — `canDelete()` is a stub.
 
 ## Layout
 
@@ -154,21 +146,17 @@ name a client sends, so every message from a deployment carries the same one.
 AUTHOR=dany npm start
 ```
 
-`CAPACITY` sets how many messages are retained (default 500). Dropping it low is the
-easiest way to exercise the eviction path: `CAPACITY=5 npm start`.
-
 `CHATTER` controls the fake conversation. By default a cabal of villains posts into the
 chat every 2-8 seconds, through the same log as real messages, so their lines resume,
 replay and delete like anything else. A fresh server starts with 40 of their lines
-already posted, backdated as if the conversation had been going for a few minutes. `CHATTER=off npm start` silences them. The lines
-live in `src/server/villains.ts`.
+already posted, backdated as if the conversation had been going for a few minutes.
+`CHATTER=off npm start` silences them. The lines live in `src/server/villains.ts`.
 
 ## Docker
 
 ```
 docker compose up --build            # http://localhost:8080
 AUTHOR=dany docker compose up -d --force-recreate
-CAPACITY=5 docker compose up -d --force-recreate
 HOST_PORT=3000 docker compose up -d
 ```
 
