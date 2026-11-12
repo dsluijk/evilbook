@@ -84,17 +84,17 @@ export class ChatView {
 
     switch (status) {
       case "connecting":
-        this.#statusText.textContent = "Connecting…";
+        this.#statusText.textContent = "Establishing secure line…";
         break;
 
       case "online":
-        this.#statusText.textContent = "Connected";
+        this.#statusText.textContent = "Line secure — nobody suspects a thing";
         this.#input.focus();
         break;
 
       case "offline":
         this.#statusText.textContent =
-          "Offline — reconnecting… You'll catch up on anything said meanwhile.";
+          "Line cut — re-establishing… Anything said meanwhile will be recovered.";
         break;
     }
   }
@@ -124,6 +124,8 @@ export class ChatView {
       return item;
     }
 
+    item.classList.add("message--self");
+
     const remove = document.createElement("button");
     remove.type = "button";
     remove.className = "message__delete";
@@ -147,7 +149,7 @@ export class ChatView {
 
     item.classList.add("message--deleted");
     item.querySelector(".message__delete")?.remove();
-    item.querySelector(".message__text")!.textContent = "This message was deleted.";
+    item.querySelector(".message__text")!.textContent = "Redacted by sender";
   }
 
   /** Our own messages wear the accent. A name the server did not list still

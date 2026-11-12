@@ -1,4 +1,4 @@
-# chatchal
+# Eleven Eyes
 
 A small chat website built around one property: it tolerates the network failing.
 
@@ -74,8 +74,8 @@ client showing something the server knows is deleted. It also means a replay res
 itself: records arrive in order, so a message followed by its delete renders and then
 collapses to a tombstone, leaving exactly the resolved set's text on screen.
 
-A tombstone keeps the author and time, replaces the text with "This message was
-deleted.", and flashes briefly so the room sees it happen. The deleted text itself is
+A tombstone keeps the author and time, replaces the text with a "Redacted by
+sender" bar, and flashes briefly so the room sees it happen. The deleted text itself is
 dropped from the page. Tombstones only come from the socket: a fresh page load starts
 from `GET /api/messages`, which has already resolved deletes away, so earlier deletes
 leave no trace there.
@@ -103,14 +103,14 @@ upgrade time, which is where a header would have been read anyway.
 
 All of this lives in [`src/client/connection.ts`](src/client/connection.ts):
 
-| Failure                             | Response                                                       |
-| ----------------------------------- | -------------------------------------------------------------- |
-| Socket closes                       | Reconnect with exponential backoff (500ms → 15s, ±20% jitter)  |
-| Network returns / tab refocused     | Skip the remaining backoff and retry immediately               |
-| Connection dies without closing     | A 60s silence watchdog forces the close the network never sent |
-| Server restarted                    | Closed with `4000` → refetch history, resume from its cursor   |
-| A message was deleted while away    | The backlog carries the delete record; it becomes a tombstone  |
-| Replayed record already applied     | Dropped — ids already applied are tracked in a set             |
+| Failure                          | Response                                                       |
+| -------------------------------- | -------------------------------------------------------------- |
+| Socket closes                    | Reconnect with exponential backoff (500ms → 15s, ±20% jitter)  |
+| Network returns / tab refocused  | Skip the remaining backoff and retry immediately               |
+| Connection dies without closing  | A 60s silence watchdog forces the close the network never sent |
+| Server restarted                 | Closed with `4000` → refetch history, resume from its cursor   |
+| A message was deleted while away | The backlog carries the delete record; it becomes a tombstone  |
+| Replayed record already applied  | Dropped — ids already applied are tracked in a set             |
 
 The server pairs a protocol-level ping (to reap sockets it can no longer reach) with an
 application-level heartbeat every 25s (so the client has something to measure silence

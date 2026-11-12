@@ -1,21 +1,31 @@
+/* A villains' secure channel, seen from inside. Light is the paper dossier
+   the transcript ends up in; dark is the console in the lair. */
 :root {
-  --bg: #fbfbfd;
-  --surface: #ffffff;
-  --border: #e3e3e8;
-  --text: #1a1a1f;
-  --muted: #71717a;
-  --accent: #3b5bdb;
-  --online: #2f9e44;
-  --connecting: #f08c00;
-  --offline: #e03131;
+  --bg: #e6dcc3;
+  --surface: #f5efdf;
+  --border: #cbbd9b;
+  --rule: #dcd0b2;
+  --text: #241e15;
+  --muted: #6b604b;
+  --accent: #a3271f;
+  --on-accent: #fbf6ea;
+  --online: #3d7a3b;
+  --connecting: #ae6f0c;
+  --offline: #b3261e;
+  --redact: #241e15;
+  --on-redact: #e6dcc3;
 
-  /* Author names. We post in the accent; everyone else gets a hue of their
-     own, a twelfth of the wheel apart and skipping the accent's blue. The
-     slots step five hues at a time, so neighbours in the roster never look
-     alike. ui.ts mirrors the count in VILLAIN_COLORS. */
-  --self: var(--accent);
-  --villain-l: 0.52;
-  --villain-c: 0.16;
+  --serif: "Bodoni 72", Didot, "Playfair Display", "Libre Bodoni", Georgia, serif;
+  --body: Charter, "Iowan Old Style", "Source Serif Pro", Georgia, serif;
+  --type: "Courier Prime", "Courier New", Courier, ui-monospace, monospace;
+
+  /* Author names. We post in a blue none of the villains wear; everyone
+     else gets a hue of their own, a twelfth of the wheel apart and skipping
+     that blue. The slots step five hues at a time, so neighbours in the
+     roster never look alike. ui.ts mirrors the count in VILLAIN_COLORS. */
+  --self: oklch(0.47 0.15 262);
+  --villain-l: 0.5;
+  --villain-c: 0.15;
   --villain-0: oklch(var(--villain-l) var(--villain-c) 298);
   --villain-1: oklch(var(--villain-l) var(--villain-c) 88);
   --villain-2: oklch(var(--villain-l) var(--villain-c) 238);
@@ -33,15 +43,20 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #131316;
-    --surface: #1c1c20;
-    --border: #2e2e35;
-    --text: #ececf1;
-    --muted: #9b9ba4;
-    --accent: #7c93f5;
-    --online: #51cf66;
-    --connecting: #ffc078;
-    --offline: #ff8787;
+    --bg: #0b0a09;
+    --surface: #14120f;
+    --border: #2e2922;
+    --rule: #221e19;
+    --text: #ebe3d2;
+    --muted: #9a907c;
+    --accent: #b8352b;
+    --on-accent: #fbf3ea;
+    --online: #7cc46a;
+    --connecting: #e5a64a;
+    --offline: #ff7b6e;
+    --redact: #3a332a;
+    --on-redact: #a99f89;
+    --self: oklch(0.76 0.12 262);
     --villain-l: 0.78;
     --villain-c: 0.13;
   }
@@ -58,13 +73,13 @@ body {
   justify-content: center;
   background: var(--bg);
   color: var(--text);
-  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  font: 16px/1.5 var(--body);
 }
 
 .chat {
   display: flex;
   flex-direction: column;
-  width: min(100%, 44rem);
+  width: min(100%, 46rem);
   height: 100dvh;
   background: var(--surface);
   border-inline: 1px solid var(--border);
@@ -72,37 +87,78 @@ body {
 
 .chat__header {
   display: flex;
-  align-items: center;
+  align-items: end;
   justify-content: space-between;
-  gap: 1rem;
-  padding: 0.85rem 1.1rem;
-  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  padding: 1rem 1.25rem 0.9rem;
+  border-bottom: 3px double var(--border);
+}
+
+.chat__title {
+  display: grid;
+  justify-items: start;
+  gap: 0.1rem;
 }
 
 .chat__header h1 {
   margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
-  letter-spacing: -0.01em;
+  font-family: var(--serif);
+  font-size: 1.6rem;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/* Ink stamp, slightly askew, as if pressed on in a hurry. */
+.stamp {
+  margin-bottom: 0.25rem;
+  padding: 0.05rem 0.45rem;
+  border: 2px solid var(--accent);
+  border-radius: 0.2rem;
+  color: var(--accent);
+  font-family: var(--type);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  transform: rotate(-3deg);
+  opacity: 0.85;
 }
 
 .identity {
-  padding: 0.3rem 0.65rem;
-  border: 1px solid var(--border);
-  border-radius: 999px;
+  display: grid;
+  justify-items: end;
+  margin: 0;
+  font-family: var(--type);
+  text-align: end;
+}
+
+.identity__label {
+  color: var(--muted);
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.identity__name {
   color: var(--self);
-  font-size: 0.85rem;
-  font-weight: 600;
+  font-size: 0.9rem;
+  font-weight: 700;
 }
 
 .status {
   display: flex;
   align-items: center;
-  gap: 0.55rem;
-  padding: 0.5rem 1.1rem;
+  gap: 0.6rem;
+  padding: 0.45rem 1.25rem;
   border-bottom: 1px solid var(--border);
-  font-size: 0.82rem;
   color: var(--muted);
+  font-family: var(--type);
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .status__dot {
@@ -115,6 +171,7 @@ body {
 
 .status[data-state="online"] .status__dot {
   background: var(--online);
+  box-shadow: 0 0 0.4rem var(--online);
 }
 
 .status[data-state="connecting"] .status__dot {
@@ -146,7 +203,7 @@ body {
   flex: 1;
   overflow-y: auto;
   margin: 0;
-  padding: 1rem 1.1rem;
+  padding: 0.5rem 1.25rem 1rem;
   list-style: none;
   overflow-wrap: anywhere;
 }
@@ -154,27 +211,41 @@ body {
 .message {
   display: grid;
   grid-template-columns: auto 1fr auto;
-  gap: 0 0.5rem;
-  padding: 0.35rem 0;
+  gap: 0 0.6rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px dashed var(--rule);
 }
 
 .message__author {
   color: var(--author, inherit);
-  font-weight: 600;
-  font-size: 0.85rem;
+  font-family: var(--type);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
 .message__time {
   color: var(--muted);
-  font-size: 0.75rem;
+  font-family: var(--type);
+  font-size: 0.72rem;
   font-variant-numeric: tabular-nums;
   align-self: center;
 }
 
 .message__text {
   grid-column: 1 / -1;
-  margin: 0.1rem 0 0;
+  margin: 0.15rem 0 0;
   white-space: pre-wrap;
+}
+
+/* The infiltrator's own lines carry a margin mark. The inline margin and
+   padding (less the mark) cancel out, so the text stays in line with
+   everyone else's. */
+.message--self {
+  margin-inline: -0.75rem;
+  padding-inline: calc(0.75rem - 3px) 0.75rem;
+  border-left: 3px solid var(--self);
+  background: color-mix(in srgb, var(--self) 6%, transparent);
 }
 
 .message__delete {
@@ -210,19 +281,28 @@ body {
   opacity: 1;
 }
 
-/* What is left of a deleted message: who said it and when, but not what. It
-   flashes on arrival so a delete is seen, not just noticed later. The inline
-   margin and padding cancel out, giving the flash room without moving text. */
+/* What is left of a deleted message: who said it and when, but not what —
+   the text is a redaction bar. It flashes on arrival so a delete is seen, not
+   just noticed later. The inline margin and padding cancel out, giving the
+   flash room without moving text. */
+.message--deleted:not(.message--self) {
+  margin-inline: -0.75rem;
+  padding-inline: 0.75rem;
+}
+
 .message--deleted {
-  margin-inline: -0.5rem;
-  padding-inline: 0.5rem;
-  border-radius: 0.4rem;
   animation: retract 2.4s ease-out;
 }
 
 .message--deleted .message__text {
-  color: var(--muted);
-  font-style: italic;
+  justify-self: start;
+  padding: 0 0.5rem;
+  background: var(--redact);
+  color: var(--on-redact);
+  font-family: var(--type);
+  font-size: 0.75rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
 }
 
 @keyframes retract {
@@ -251,8 +331,8 @@ body {
 .composer {
   display: flex;
   gap: 0.5rem;
-  padding: 0.85rem 1.1rem;
-  border-top: 1px solid var(--border);
+  padding: 0.85rem 1.25rem;
+  border-top: 3px double var(--border);
 }
 
 .composer__input {
@@ -260,10 +340,16 @@ body {
   min-width: 0;
   padding: 0.55rem 0.8rem;
   border: 1px solid var(--border);
-  border-radius: 0.5rem;
+  border-radius: 0.2rem;
   background: var(--bg);
   color: inherit;
   font: inherit;
+  font-family: var(--type);
+  font-size: 0.9rem;
+}
+
+.composer__input::placeholder {
+  color: var(--muted);
 }
 
 .composer__input:focus-visible {
@@ -274,12 +360,20 @@ body {
 .composer__send {
   padding: 0.55rem 1.1rem;
   border: none;
-  border-radius: 0.5rem;
+  border-radius: 0.2rem;
   background: var(--accent);
-  color: #fff;
-  font: inherit;
-  font-weight: 500;
+  color: var(--on-accent);
+  font-family: var(--type);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
   cursor: pointer;
+}
+
+.composer__send:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
 }
 
 .composer__input:disabled,

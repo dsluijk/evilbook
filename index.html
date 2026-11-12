@@ -3,18 +3,35 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>chatchal</title>
+    <title>Eleven Eyes</title>
   </head>
   <body>
     <main class="chat">
       <header class="chat__header">
-        <h1>chatchal</h1>
-        <span id="identity" class="identity" title="Messages from this server are posted under this name"></span>
+        <div class="chat__title">
+          <span class="stamp" aria-hidden="true">Secure Channel</span>
+          <h1>Eleven Eyes</h1>
+        </div>
+        <p
+          class="identity"
+          title="Messages from this server are posted under this name"
+        >
+          <span class="identity__label">Posting as</span>
+          <span id="identity" class="identity__name"></span>
+        </p>
       </header>
 
-      <div class="status" id="status" data-state="connecting" role="status" aria-live="polite">
+      <div
+        class="status"
+        id="status"
+        data-state="connecting"
+        role="status"
+        aria-live="polite"
+      >
         <span class="status__dot" aria-hidden="true"></span>
-        <span class="status__text" id="status-text">Connecting…</span>
+        <span class="status__text" id="status-text"
+          >Establishing secure line…</span
+        >
       </div>
 
       <ol class="messages" id="messages"></ol>
@@ -24,11 +41,11 @@
           type="text"
           id="input"
           class="composer__input"
-          placeholder="Write a message…"
+          placeholder="Transmit a message…"
           autocomplete="off"
           maxlength="2000"
         />
-        <button type="submit" class="composer__send" id="send">Send</button>
+        <button type="submit" class="composer__send" id="send">Transmit</button>
       </form>
     </main>
 

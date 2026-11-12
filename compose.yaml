@@ -1,5 +1,5 @@
 services:
-  chatchal:
+  eleven-eyes:
     build: .
     ports:
       - "${HOST_PORT:-8080}:8080"

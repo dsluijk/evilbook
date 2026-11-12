@@ -12,7 +12,7 @@ const app = createChatServer({
 
 app.server.listen(PORT, () => {
   console.log(
-    `chatchal on http://localhost:${PORT} (posting as ${app.author}${CHATTER ? ", villains chatting" : ""}${CHATTER && FLAG ? ", flag planted" : ""})`,
+    `elevenEyes on http://localhost:${PORT} (posting as ${app.author}${CHATTER ? ", villains chatting" : ""}${CHATTER && FLAG ? ", flag planted" : ""})`,
   );
 });
 
