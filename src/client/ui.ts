@@ -44,13 +44,14 @@ export class ChatView {
     this.#identity.textContent = author;
   }
 
-  /** Applies a run of log records in order: messages render, deletes unrender.
-   *  Order matters — a message and its delete can arrive in the same batch. */
+  /** Applies a run of log records in order: messages render, deletes leave a
+   *  tombstone. Order matters — a message and its delete can arrive in the
+   *  same batch. */
   apply(records: any[]): void {
     const following = this.#isNearBottom();
 
     for (const record of records) {
-      if (record.type === "delete") this.#remove(record.target);
+      if (record.type === "delete") this.#tombstone(record.target);
       else this.#list.append(this.#render(record));
     }
 
@@ -117,10 +118,19 @@ export class ChatView {
     return item;
   }
 
-  /** A delete for a message we never rendered — older than the snapshot we
-   *  loaded — is a no-op, not an error. */
-  #remove(id: string): void {
-    this.#list.querySelector(`.message[data-id="${CSS.escape(id)}"]`)?.remove();
+  /** The message stays where it was, so the room sees that something was said
+   *  and withdrawn — but its text goes: the page keeps nothing the server has
+   *  deleted. A delete for a message we never rendered — older than the
+   *  snapshot we loaded — is a no-op, not an error. */
+  #tombstone(id: string): void {
+    const item = this.#list.querySelector<HTMLLIElement>(
+      `.message[data-id="${CSS.escape(id)}"]`,
+    );
+    if (item === null || item.classList.contains("message--deleted")) return;
+
+    item.classList.add("message--deleted");
+    item.querySelector(".message__delete")?.remove();
+    item.querySelector(".message__text")!.textContent = "This message was deleted.";
   }
 
   #isNearBottom(): boolean {

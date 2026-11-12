@@ -300,32 +300,126 @@ export const VILLAINS: ReadonlyArray<{
   },
 ];
 
+/**
+ * Lines a villain posts and then thinks better of. Each is deleted a few
+ * seconds later, and the villain follows up once it is gone, so the room
+ * notices that something was said.
+ */
+export const RETRACTIONS: ReadonlyArray<{
+  author: string;
+  text: string;
+  followUp: string;
+}> = [
+  {
+    author: "Number Seven",
+    text: "Reminder: the spare key to the main vault is under the plant in reception. The fake plant, not the real one.",
+    followUp: "Disregard that. There is no plant. There is no reception.",
+  },
+  {
+    author: "Cipher",
+    text: "pushing the master keyfile to the shared drive so viktor stops asking",
+    followUp: "nope. deleted. never happened. viktor, ask me in person.",
+  },
+  {
+    author: "Viktor from IT",
+    text: "Attaching the full staff list with home addresses for the Christmas card drive.",
+    followUp:
+      "Please ignore my previous message. HR has asked me to say that more firmly. IGNORE IT.",
+  },
+  {
+    author: "Mr. Fen",
+    text: "Status: the agent is in room 404 of the Hotel Splendide. Proceeding at midnight.",
+    followUp: "Correction: I do not know where anyone is. I am asleep.",
+  },
+  {
+    author: "Madame Sablé",
+    text: "Darling, the diamond is not in the vault at all. It is sewn into the lining of my second-best coat.",
+    followUp: "Ignore that. I own only one coat. It has no lining.",
+  },
+  {
+    author: "Dr. Ivo Morrow",
+    text: "Full launch sequence for the orbital mirror, step one: turn the large red dial to",
+    followUp: "On reflection, that is not a topic for chat. Pun intended.",
+  },
+  {
+    author: "Baron Krell",
+    text: "Mephisto, if you can read this, the treats are in the second drawer of the self-destruct console.",
+    followUp: "That was meant for the cat. The cat cannot read. I am aware.",
+  },
+  {
+    author: "Countess Varga",
+    text: "Wire the full ransom to the usual account in Liechtenstein. Routing details below, do not lose them:",
+    followUp: "Details withdrawn. Accountants, stop taking screenshots.",
+  },
+  {
+    author: "Admiral Thorne",
+    text: "For those who keep asking: the submarine is currently sitting under the pier at Portofino.",
+    followUp:
+      "Belay that. The position of the submarine is classified. Even from us.",
+  },
+  {
+    author: "Lady Ashgrove",
+    text: "Note to self: cover identity is Mrs. Penelope Hart, retired schoolteacher, two cats, allergic to wasps.",
+    followUp: "That was a draft. I have no cats. Or drafts.",
+  },
+  {
+    author: "General Zarkov",
+    text: "WHY IS MY PERSONAL CODEWORD ON THE BIG SCREEN. IS THIS THE CHAT. CAN EVERYONE SEE THIS.",
+    followUp:
+      "Viktor has fixed it. Viktor says I was 'sharing my screen'. I did not consent to this.",
+  },
+  {
+    author: "Viktor from IT",
+    text: "Test message, please ignore. If anyone can still see this, deleting is broken.",
+    followUp: "Deleting works. I checked. Please stop telling me you saw it.",
+  },
+];
+
+/** Where chatter lands. `post` returns the id of the message it appended, so
+ *  a retraction can name it when it is deleted. */
+export type ChatterSink = {
+  post: (author: string, text: string, ts: number) => string;
+  remove: (id: string, author: string, ts: number) => void;
+};
+
 export type ChatterOptions = {
   minDelayMs?: number;
   maxDelayMs?: number;
   /** Lines posted the moment chatter starts, so a fresh server already has a
-   *  conversation in progress. */
+   *  conversation in progress. One of them is always a retraction. */
   backlog?: number;
+  /** Chance that a live post is a retraction rather than an ordinary line. */
+  retractChance?: number;
+  /** How long a retracted line stays up before it is deleted. */
+  minRetractMs?: number;
+  maxRetractMs?: number;
   random?: () => number;
 };
 
 const DEFAULT_MIN_DELAY_MS = 2_000;
-const DEFAULT_MAX_DELAY_MS = 8_000;
+const DEFAULT_MAX_DELAY_MS = 10_000;
 const DEFAULT_BACKLOG = 25;
+const DEFAULT_RETRACT_CHANCE = 1 / 10;
+const DEFAULT_MIN_RETRACT_MS = 2_000;
+const DEFAULT_MAX_RETRACT_MS = 6_000;
 
 /**
  * Posts a villain line every few seconds until stopped. Lines are drawn from a
  * shuffled bag, so nothing repeats until every line has been said once, and
  * the same villain never speaks twice in a row while anyone else is available.
+ * Now and then a villain says something they should not have, and deletes it.
  */
 export function startChatter(
-  post: (author: string, text: string, ts: number) => void,
+  sink: ChatterSink,
   options: ChatterOptions = {},
 ): () => void {
   const {
     minDelayMs = DEFAULT_MIN_DELAY_MS,
     maxDelayMs = DEFAULT_MAX_DELAY_MS,
     backlog = DEFAULT_BACKLOG,
+    retractChance = DEFAULT_RETRACT_CHANCE,
+    minRetractMs = DEFAULT_MIN_RETRACT_MS,
+    maxRetractMs = DEFAULT_MAX_RETRACT_MS,
     random = Math.random,
   } = options;
 
@@ -333,8 +427,9 @@ export function startChatter(
     lines.map((text) => ({ author, text })),
   );
   let bag: typeof all = [];
+  let retractions: Array<(typeof RETRACTIONS)[number]> = [];
   let last: string | null = null;
-  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timers = new Set<ReturnType<typeof setTimeout>>();
 
   const draw = () => {
     if (bag.length === 0) bag = shuffle(all, random);
@@ -348,28 +443,88 @@ export function startChatter(
     return line;
   };
 
-  const delay = () => minDelayMs + random() * (maxDelayMs - minDelayMs);
+  const drawRetraction = () => {
+    if (retractions.length === 0) retractions = shuffle(RETRACTIONS, random);
+    const retraction = retractions.pop()!;
+    last = retraction.author;
+    return retraction;
+  };
+
+  const between = (min: number, max: number) => min + random() * (max - min);
+
+  const later = (ms: number, run: () => void) => {
+    const timer = setTimeout(() => {
+      timers.delete(timer);
+      run();
+    }, ms);
+    timers.add(timer);
+  };
 
   const schedule = () => {
-    timer = setTimeout(() => {
-      const line = draw();
-      post(line.author, line.text, Date.now());
+    later(between(minDelayMs, maxDelayMs), () => {
+      if (random() < retractChance) {
+        const { author, text, followUp } = drawRetraction();
+        const id = sink.post(author, text, Date.now());
+        later(between(minRetractMs, maxRetractMs), () => {
+          sink.remove(id, author, Date.now());
+          sink.post(author, followUp, Date.now());
+        });
+      } else {
+        const line = draw();
+        sink.post(line.author, line.text, Date.now());
+      }
       schedule();
-    }, delay());
+    });
   };
 
   // Posted all at once, but dated as if it had trickled in at the usual pace,
-  // the newest line landing now.
-  const gaps = Array.from({ length: backlog }, delay);
-  let ts = Date.now() - gaps.reduce((sum, gap) => sum + gap, 0);
-  for (const gap of gaps) {
+  // the newest line landing now. One slot in the older half is a retraction,
+  // so a fresh server already holds a deleted message; its delete is dated a
+  // little later and slots in among the lines that followed it.
+  const now = Date.now();
+  const gaps = Array.from({ length: backlog }, () =>
+    between(minDelayMs, maxDelayMs),
+  );
+  const retracted =
+    backlog > 0 ? Math.floor(random() * Math.ceil(backlog / 2)) : -1;
+  const events: Array<{ ts: number; run: () => void }> = [];
+  let ts = now - gaps.reduce((sum, gap) => sum + gap, 0);
+
+  gaps.forEach((gap, i) => {
     ts += gap;
-    const line = draw();
-    post(line.author, line.text, Math.round(ts));
-  }
+    const at = Math.round(ts);
+
+    if (i !== retracted) {
+      const line = draw();
+      events.push({ ts: at, run: () => sink.post(line.author, line.text, at) });
+      return;
+    }
+
+    const { author, text, followUp } = drawRetraction();
+    const gone = Math.min(
+      now,
+      Math.round(at + between(minRetractMs, maxRetractMs)),
+    );
+    let id = "";
+    events.push({ ts: at, run: () => (id = sink.post(author, text, at)) });
+    events.push({
+      ts: gone,
+      run: () => {
+        sink.remove(id, author, gone);
+        sink.post(author, followUp, gone);
+      },
+    });
+  });
+
+  // Stable, so a delete that ties with a later line still follows its target.
+  events.sort((a, b) => a.ts - b.ts);
+  for (const event of events) event.run();
 
   schedule();
-  return () => clearTimeout(timer);
+  return () => {
+    for (const timer of timers) clearTimeout(timer);
+    timers.clear();
+  };
 }
 
 function shuffle<T>(items: readonly T[], random: () => number): T[] {

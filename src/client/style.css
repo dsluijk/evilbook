@@ -187,6 +187,27 @@ body {
   opacity: 1;
 }
 
+/* What is left of a deleted message: who said it and when, but not what. It
+   flashes on arrival so a delete is seen, not just noticed later. The inline
+   margin and padding cancel out, giving the flash room without moving text. */
+.message--deleted {
+  margin-inline: -0.5rem;
+  padding-inline: 0.5rem;
+  border-radius: 0.4rem;
+  animation: retract 2.4s ease-out;
+}
+
+.message--deleted .message__text {
+  color: var(--muted);
+  font-style: italic;
+}
+
+@keyframes retract {
+  from {
+    background: color-mix(in srgb, var(--offline) 25%, transparent);
+  }
+}
+
 /* Nothing hovers on a touchscreen, so never hide it there. */
 @media (hover: none) {
   .message__delete {
@@ -197,6 +218,10 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .message__delete {
     transition: none;
+  }
+
+  .message--deleted {
+    animation: none;
   }
 }
 

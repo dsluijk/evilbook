@@ -71,7 +71,13 @@ The socket has to, because an append-only backlog is the one thing that can say 
 old message you still have on screen is gone." Resolving it server-side would leave the
 client showing something the server knows is deleted. It also means a replay resolves
 itself: records arrive in order, so a message followed by its delete renders and then
-unrenders, landing on exactly the resolved set.
+collapses to a tombstone, leaving exactly the resolved set's text on screen.
+
+A tombstone keeps the author and time, replaces the text with "This message was
+deleted.", and flashes briefly so the room sees it happen. The deleted text itself is
+dropped from the page. Tombstones only come from the socket: a fresh page load starts
+from `GET /api/messages`, which has already resolved deletes away, so earlier deletes
+leave no trace there.
 
 Deletes are idempotent and unordered-safe by construction. An unknown or already-deleted
 target appends nothing, and a delete whose target the client never rendered is a no-op
@@ -102,7 +108,7 @@ All of this lives in [`src/client/connection.ts`](src/client/connection.ts):
 | Network returns / tab refocused     | Skip the remaining backoff and retry immediately               |
 | Connection dies without closing     | A 60s silence watchdog forces the close the network never sent |
 | Server restarted                    | Closed with `4000` → drop the cursor, reconnect, replay        |
-| A message was deleted while away    | The backlog carries the delete record; the client unrenders it |
+| A message was deleted while away    | The backlog carries the delete record; it becomes a tombstone  |
 | Replayed record already applied     | Dropped — ids already applied are tracked in a set             |
 
 The server pairs a protocol-level ping (to reap sockets it can no longer reach) with an
@@ -148,8 +154,10 @@ AUTHOR=dany npm start
 
 `CHATTER` controls the fake conversation. By default a cabal of villains posts into the
 chat every 2-8 seconds, through the same log as real messages, so their lines resume,
-replay and delete like anything else. A fresh server starts with 40 of their lines
+replay and delete like anything else. A fresh server starts with 25 of their lines
 already posted, backdated as if the conversation had been going for a few minutes.
+About one post in thirty, a villain says something they shouldn't, deletes it 4-10
+seconds later and posts a follow-up; the startup backlog always contains one of these.
 `CHATTER=off npm start` silences them. The lines live in `src/server/villains.ts`.
 
 ## Docker

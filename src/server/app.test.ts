@@ -5,6 +5,7 @@ import { after, before, test } from "node:test";
 import WebSocket from "ws";
 
 import { createChatServer, RESET_CLOSE_CODE, type ChatServer } from "./app.ts";
+import { RETRACTIONS } from "./villains.ts";
 
 const AUTHOR = "kiosk";
 
@@ -375,4 +376,35 @@ test("a delete for an id the server never issued is ignored, not broadcast", asy
 
   client.socket.close();
   await closed(client.socket);
+});
+
+test("a retracted villain line is gone from history but replayed as message plus delete", async () => {
+  const villains = createChatServer({
+    chatter: { backlog: 6, minDelayMs: 60_000, maxDelayMs: 60_000 },
+  });
+  await new Promise<void>((resolve) => villains.server.listen(0, resolve));
+  const { port } = villains.server.address() as AddressInfo;
+
+  try {
+    const retracted = new Set(RETRACTIONS.map(({ text }) => text));
+
+    const snapshot = (await (await fetch(`http://localhost:${port}/api/messages`)).json()) as any;
+    assert.equal(snapshot.messages.length, 6, "six lines and a follow-up, less the one deleted");
+    assert.ok(!snapshot.messages.some((m: any) => retracted.has(m.text)));
+
+    const socket = new WebSocket(`ws://localhost:${port}/ws`);
+    const sync = await new Promise<any>((resolve) =>
+      socket.once("message", (data) => resolve(JSON.parse(data.toString()))),
+    );
+    const message = sync.records.find((r: any) => r.type === "message" && retracted.has(r.text));
+    const removal = sync.records.find((r: any) => r.type === "delete");
+    assert.ok(message, "the deleted line is still in the raw log");
+    assert.equal(removal.target, message.id);
+    assert.ok(sync.records.indexOf(removal) > sync.records.indexOf(message));
+
+    socket.close();
+    await closed(socket);
+  } finally {
+    await villains.close();
+  }
 });

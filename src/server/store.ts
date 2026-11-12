@@ -34,7 +34,7 @@ export class MessageStore {
 
   /** Retires a live message. Returns null — appending nothing — if it is
    *  unknown or already deleted. */
-  delete(target: string, author: string): any | null {
+  delete(target: string, author: string, ts: number = Date.now()): any | null {
     if (this.live(target) === undefined) return null;
 
     return this.#push({
@@ -42,7 +42,7 @@ export class MessageStore {
       id: randomUUID(),
       target,
       author: author.slice(0, MAX_AUTHOR_LENGTH),
-      ts: Date.now(),
+      ts,
     });
   }
 

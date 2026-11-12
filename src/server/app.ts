@@ -123,7 +123,20 @@ export function createChatServer(options: ChatServerOptions = {}): ChatServer {
   // Goes through the same append-and-broadcast path as a real send, so fake
   // messages are cursors, replay and delete like any other.
   const stopChatter = options.chatter
-    ? startChatter((who, text, ts) => broadcast(store.append(who, text, ts)), options.chatter)
+    ? startChatter(
+        {
+          post: (who, text, ts) => {
+            const record = store.append(who, text, ts);
+            broadcast(record);
+            return record.id;
+          },
+          remove: (id, who, ts) => {
+            const record = store.delete(id, who, ts);
+            if (record !== null) broadcast(record);
+          },
+        },
+        options.chatter,
+      )
     : () => {};
 
   wss.on("connection", (socket, req) => {
