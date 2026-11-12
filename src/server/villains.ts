@@ -31,6 +31,7 @@ export const VILLAINS: ReadonlyArray<{ author: string; lines: readonly string[] 
       "Remind me why the doomsday device has a big red button with no cover on it.",
       "The world leaders have twenty-four hours to respond. I have also sent a polite follow-up email in case it went to spam.",
       "We are not 'evil'. We are 'disruptive'. Countess, update the brochure.",
+      "Cipher informs me that our 'impenetrable' firewall is in fact a sticky note on the router that says 'please don't'. Unacceptable.",
     ],
   },
   {
@@ -57,6 +58,8 @@ export const VILLAINS: ReadonlyArray<{ author: string; lines: readonly string[] 
       "One does not 'ask' for the launch codes, Number Seven. One waits for the general to fall asleep in the sauna.",
       "If I am captured, I've never heard of any of you. Except the Baron. Everyone's heard of the Baron. He has a cat.",
       "Ski chalet in the Alps, Thursday. Black diamond runs, black diamond heist. I do love a theme.",
+      "The general's aide left his laptop unlocked at the bar. I bought him a drink and copied his entire inbox. Cheers, darling.",
+      "Cipher, darling, I've brought you a present from the ministry. It's a hard drive. And a very nice scarf.",
     ],
   },
   {
@@ -85,6 +88,8 @@ export const VILLAINS: ReadonlyArray<{ author: string; lines: readonly string[] 
       "Fine. Not Lichtenstein. I'll try it on the old warehouse. Nobody has feelings about warehouses.",
       "I've invented a truth serum. Early results: Mr. Fen once cried at a film about a horse.",
       "The countdown display is now in a much more readable font. Panicking is so much easier when you can see the numbers.",
+      "I've air-gapped the laser control room. By which I mean I've put it on a separate island.",
+      "Cipher has asked me to stop writing the launch codes on the whiteboard. It's a very big whiteboard. They're very big codes.",
     ],
   },
   {
@@ -110,6 +115,7 @@ export const VILLAINS: ReadonlyArray<{ author: string; lines: readonly string[] 
       "Our new brochure is printed. Tagline: 'Tomorrow's Catastrophes, Today.'",
       "I've reviewed the budget for the hollowed-out moon base. We can afford a hollowed-out moon crater. Final offer.",
       "Every villain organisation that collapses goes under because of overspending on lairs. We will not be a statistic.",
+      "Cipher has moved the funds through so many accounts that even I don't know where they are. That was not the brief.",
     ],
   },
   {
@@ -137,6 +143,8 @@ export const VILLAINS: ReadonlyArray<{ author: string; lines: readonly string[] 
       "Guards are asking for lunch breaks that are not all at the same time. Fair point. Implemented.",
       "Requesting permission to fight him on top of the cable car. Will make it look good.",
       "Snack machine in hangar 2 is empty. Someone took all the crisps. It was not me.",
+      "Guards caught a man in the server room with a laptop. It was Cipher. Apologised.",
+      "Changed my password. Wrote it on my hand. Washed my hand. Locked out.",
     ],
   },
   {
@@ -189,6 +197,102 @@ export const VILLAINS: ReadonlyArray<{ author: string; lines: readonly string[] 
       "Fire drill at 3pm. This is a real fire drill, not a drill for setting fires.",
       "I've written the press release for after our victory. Can I get a quick review? I used a lot of exclamation marks.",
       "Our anonymous employee survey says 87% of henchmen 'feel underappreciated' and 13% 'feel underground'.",
+      "IT says I have to finish the mandatory security training before I can open the doomsday shared drive. It's four hours long.",
+      "Passed! The certificate says 'Certified Evil Security Associate'. I'm having it framed.",
+      "Cipher, is it normal for my laptop fan to sound like a jet engine every time I open the plans?",
+    ],
+  },
+  {
+    author: "Cipher",
+    lines: [
+      "i'm in.",
+      "ok, now i'm actually in. the first time was the guest wifi.",
+      "the agent's phone hasn't been updated since 2019. i'm not even going to bother. it feels unsporting.",
+      "reminder: rotate your keys. baron, that means the crypto keys, not the volcano keys.",
+      "someone on this council opened an attachment called 'FREE_SHARK_FOOD.exe'. i won't say who. number seven.",
+      "the bank's firewall is impressive. their receptionist, who reads passwords out loud on the phone, less so.",
+      "i've left a backdoor in the satellite firmware. not for anything specific. it just felt rude not to.",
+      "they finally patched the hole i was using. took them eleven months. i'm almost proud.",
+      "i can take down a power grid from a laptop but i cannot get the lair printer to work.",
+      "for the record, the doomsday device should not be on the same network as the canteen menu screen.",
+      "ran a phishing test on the henchmen. 94% handed over their password for a voucher for crisps.",
+      "mr. fen was the 6%. he doesn't have an email address. respect.",
+      "it's always dns. even in an evil lair. especially in an evil lair.",
+      "i don't do trapdoors. i do the 'quietly move a decimal point' stuff.",
+      "their quartermaster is good. i'd hire them if they weren't so british about everything.",
+      "please stop calling me 'the computer one'. i have a codename. it's on the badge.",
+      "cracked the encrypted briefcase. inside: another encrypted briefcase. that's just mean.",
+      "someone left the volcano's admin panel on its factory default password. fixed it, but i want you to feel bad.",
+      "the logs show someone logged into the laser at 3am to 'check something'. ivo. it's always ivo.",
+      "going dark for 48 hours. if anyone needs me, don't.",
+      "the countess wants a blockchain. i've explained twice now that a spreadsheet is fine.",
+    ],
+  },
+  {
+    author: "Viktor from IT",
+    lines: [
+      "Have you tried turning the doomsday device off and on again? Please do not actually do that.",
+      "Ticket #4471, 'laser not lasing'. Closed as user error. The lens cap was on.",
+      "Reminder: the lair Wi-Fi is for evil business only. Whoever is streaming cooking shows in the reactor room, I can see you.",
+      "Patch night is tonight. The volcano reboots at 2am. Save your schemes.",
+      "No, Baron, I cannot 'enhance' the CCTV still. It's eleven pixels. It's either the agent or a lamp.",
+      "Please stop plugging in USB sticks you 'found in the car park'. That is literally how we got into theirs.",
+      "New-hire onboarding: laptop, badge, cyanide capsule, password policy. Read the password policy first.",
+      "The self-destruct console now requires two-factor authentication. Yes, even in an emergency. Especially in an emergency.",
+      "Ticket #4480, 'cat sat on the launch keyboard'. Rolled back. Mephisto's access has been revoked.",
+      "Someone set the countdown clock to the wrong timezone. We very nearly ended the world a day late.",
+      "If your evil laugh echoes strangely on calls, it's your microphone, not the acoustics of the cavern.",
+      "The backup tapes are kept in the lava-proof vault. Not lava-resistant. Lava-proof. I checked the spec.",
+      "Admiral, the submarine has no internet because it is under the sea. That's not a ticket, it's physics.",
+      "I've hardened every server in the lair. He came in through the air ducts again. You can't patch air ducts.",
+      "Please stop naming files 'secret_plan_FINAL_v3_REAL'. We have a naming convention.",
+      "The server room is kept at 18 degrees. Please stop hiding in there because it's 'the only room that isn't a volcano'.",
+      "Out of office: patching the satellite. Back when it's back in orbit.",
+      "Yes, the monorail has a firmware update. No, I don't know why it needs one either.",
+    ],
+  },
+  {
+    author: "Lady Ashgrove",
+    lines: [
+      "Tea at the embassy went beautifully. The attaché told me everything after his second scone.",
+      "One doesn't hack a minister, darlings. One invites him to the shooting weekend and lets him talk.",
+      "The cabinet secretary's butler has been on my payroll since 1987. Lovely man. Dreadful at bridge.",
+      "Cipher tells me the ministry's computers are 'hardened'. Their gossip, thankfully, is not.",
+      "The ambassador's wife keeps the codes in the back of her recipe book, filed under 'trifle'.",
+      "Got the access badge. I simply walked in holding a clipboard and looking cross. Works every time.",
+      "My great-grandfather tried to steal the crown jewels. I intend to finish the job, but tastefully.",
+      "The garden party is on Saturday. Half of Whitehall will be there. Do wear something that doesn't obviously conceal a weapon.",
+      "Baron, darling, your cat has shed on my Chanel. I'm sending you the bill, and possibly someone to collect it.",
+      "The new head of security is a sweetheart. He's offered to show me the server room. He thinks I'm writing a novel.",
+      "I've told the duke the plan is a charity gala. Technically, we are redistributing wealth.",
+      "If the agent turns up at the polo, I shall distract him. I have a very large hat.",
+      "Never trust a man who orders his drink with instructions.",
+      "The vault code is the minister's daughter's birthday. Everyone's vault code is somebody's birthday.",
+      "I simply asked the receptionist for the password and she gave it to me. Breeding, darling. It opens doors.",
+      "Lunch at the club tomorrow with three admirals and a man from the Treasury. I'll bring a notebook and a very small camera.",
+      "Number Seven, darling, one doesn't reply-all to a coup.",
+    ],
+  },
+  {
+    author: "General Zarkov",
+    lines: [
+      "Why are we hacking the bank? Give me forty men and a tank. We drive through the wall. Done.",
+      "My tanks are ready. My missiles are ready. My password, apparently, has 'expired'. This is an outrage.",
+      "Viktor from IT says I need 'one capital letter and a symbol'. I gave him a symbol. He is in the infirmary.",
+      "In my day, a cyberattack was cutting the telephone wire with a big knife.",
+      "The rocket is fuelled. The countdown begins on my word. My word is 'GO'. Viktor, why is it asking me to confirm.",
+      "I do not trust the computer one. She types too fast. Nobody honest types that fast.",
+      "Lasers, phishing, blockchain. Bah. Nothing frightens a government like a very large missile with a face painted on it.",
+      "I have personally inspected the troops. Disciplined. Fearless. Three of them were playing Snake on their phones.",
+      "If the British agent comes, I will fight him myself. Hand to hand. On a train, ideally.",
+      "Admiral, your submarine is very impressive. But can it drive over a mountain? My tank can. Slowly.",
+      "I have been told to stop printing the secret plans. Where else should they go? Into the 'cloud'? Clouds are for weather.",
+      "The ransom demand will be delivered by courier. On a horse. Emails can be traced. Horses cannot.",
+      "Viktor has given me a security key. I keep it on my keyring next to the key to the missile silo. Very secure.",
+      "I have lost the security key. Also the key to the missile silo. Same keyring. Unrelated incident.",
+      "Found them. They were in the tank.",
+      "Morale is high. Rations are low. The usual balance.",
+      "Countess, I need eleven more helicopters. No, I will not explain. A general does not explain helicopters.",
     ],
   },
 ];
@@ -199,8 +303,8 @@ export type ChatterOptions = {
   random?: () => number;
 };
 
-const DEFAULT_MIN_DELAY_MS = 5_000;
-const DEFAULT_MAX_DELAY_MS = 20_000;
+const DEFAULT_MIN_DELAY_MS = 2_000;
+const DEFAULT_MAX_DELAY_MS = 8_000;
 
 /**
  * Posts a villain line every few seconds until stopped. Lines are drawn from a

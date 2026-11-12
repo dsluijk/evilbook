@@ -158,7 +158,7 @@ AUTHOR=dany npm start
 easiest way to exercise the eviction path: `CAPACITY=5 npm start`.
 
 `CHATTER` controls the fake conversation. By default a cabal of villains posts into the
-chat every 5-20 seconds, through the same log as real messages, so their lines resume,
+chat every 2-8 seconds, through the same log as real messages, so their lines resume,
 replay and delete like anything else. `CHATTER=off npm start` silences them. The lines
 live in `src/server/villains.ts`.
 
