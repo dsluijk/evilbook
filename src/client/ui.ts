@@ -2,6 +2,9 @@ export type Status = "connecting" | "online" | "offline";
 
 const STICK_THRESHOLD_PX = 80;
 
+/** How many --villain-N colours style.css defines. */
+const VILLAIN_COLORS = 11;
+
 const time = new Intl.DateTimeFormat(undefined, {
   hour: "2-digit",
   minute: "2-digit",
@@ -17,6 +20,8 @@ export class ChatView {
   readonly #input = document.getElementById("input") as HTMLInputElement;
   readonly #send = document.getElementById("send") as HTMLButtonElement;
   readonly #identity = document.getElementById("identity") as HTMLSpanElement;
+  #self = "";
+  #villains = new Map<string, number>();
 
   constructor(
     private readonly onSend: (text: string) => void,
@@ -40,8 +45,13 @@ export class ChatView {
     });
   }
 
-  setAuthor(author: string): void {
-    this.#identity.textContent = author;
+  /** Who we post as, and the other people in the room in the server's order.
+   *  Each villain keeps its slot in the palette, so its colour never changes
+   *  between reloads and no two of them share one. */
+  setAuthors(self: string, villains: string[]): void {
+    this.#self = self;
+    this.#villains = new Map(villains.map((name, i) => [name, i % VILLAIN_COLORS]));
+    this.#identity.textContent = self;
   }
 
   /** Applies a run of log records in order: messages render, deletes leave a
@@ -93,6 +103,7 @@ export class ChatView {
     const item = document.createElement("li");
     item.className = "message";
     item.dataset.id = message.id;
+    item.style.setProperty("--author", this.#colorOf(message.author));
 
     const author = document.createElement("span");
     author.className = "message__author";
@@ -131,6 +142,20 @@ export class ChatView {
     item.classList.add("message--deleted");
     item.querySelector(".message__delete")?.remove();
     item.querySelector(".message__text")!.textContent = "This message was deleted.";
+  }
+
+  /** Our own messages wear the accent. A name the server did not list still
+   *  gets a colour, hashed from the name so it is the same on every load. */
+  #colorOf(author: string): string {
+    if (author === this.#self) return "var(--self)";
+
+    let slot = this.#villains.get(author);
+    if (slot === undefined) {
+      let hash = 0;
+      for (const char of author) hash = (hash * 31 + char.codePointAt(0)!) >>> 0;
+      slot = hash % VILLAIN_COLORS;
+    }
+    return `var(--villain-${slot})`;
   }
 
   #isNearBottom(): boolean {

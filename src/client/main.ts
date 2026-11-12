@@ -44,7 +44,7 @@ class Connection {
   #adopt(history: any): void {
     this.#cursor = history.cursor;
     this.#seen = new Set<string>(history.messages.map((message: any) => message.id));
-    this.view.setAuthor(history.author);
+    this.view.setAuthors(history.author, history.villains ?? []);
   }
 
   #connect(): void {

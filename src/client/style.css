@@ -9,6 +9,25 @@
   --connecting: #f08c00;
   --offline: #e03131;
 
+  /* Author names. We post in the accent; everyone else gets a hue of their
+     own, a twelfth of the wheel apart and skipping the accent's blue. The
+     slots step five hues at a time, so neighbours in the roster never look
+     alike. ui.ts mirrors the count in VILLAIN_COLORS. */
+  --self: var(--accent);
+  --villain-l: 0.52;
+  --villain-c: 0.16;
+  --villain-0: oklch(var(--villain-l) var(--villain-c) 298);
+  --villain-1: oklch(var(--villain-l) var(--villain-c) 88);
+  --villain-2: oklch(var(--villain-l) var(--villain-c) 238);
+  --villain-3: oklch(var(--villain-l) var(--villain-c) 58);
+  --villain-4: oklch(var(--villain-l) var(--villain-c) 208);
+  --villain-5: oklch(var(--villain-l) var(--villain-c) 28);
+  --villain-6: oklch(var(--villain-l) var(--villain-c) 178);
+  --villain-7: oklch(var(--villain-l) var(--villain-c) 358);
+  --villain-8: oklch(var(--villain-l) var(--villain-c) 148);
+  --villain-9: oklch(var(--villain-l) var(--villain-c) 328);
+  --villain-10: oklch(var(--villain-l) var(--villain-c) 118);
+
   color-scheme: light dark;
 }
 
@@ -23,6 +42,8 @@
     --online: #51cf66;
     --connecting: #ffc078;
     --offline: #ff8787;
+    --villain-l: 0.78;
+    --villain-c: 0.13;
   }
 }
 
@@ -69,8 +90,9 @@ body {
   padding: 0.3rem 0.65rem;
   border: 1px solid var(--border);
   border-radius: 999px;
-  color: var(--muted);
+  color: var(--self);
   font-size: 0.85rem;
+  font-weight: 600;
 }
 
 .status {
@@ -137,6 +159,7 @@ body {
 }
 
 .message__author {
+  color: var(--author, inherit);
   font-weight: 600;
   font-size: 0.85rem;
 }

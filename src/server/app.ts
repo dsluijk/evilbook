@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { WebSocketServer, type WebSocket } from "ws";
 
 import { MAX_AUTHOR_LENGTH, MAX_TEXT_LENGTH, MessageStore } from "./store.ts";
-import { startChatter, type ChatterOptions } from "./villains.ts";
+import { startChatter, VILLAINS, type ChatterOptions } from "./villains.ts";
 
 const HISTORY_LIMIT = 100;
 
@@ -90,6 +90,9 @@ export function createChatServer(options: ChatServerOptions = {}): ChatServer {
   const author =
     (options.author ?? "").trim().slice(0, MAX_AUTHOR_LENGTH) || DEFAULT_AUTHOR;
   const clients = new Set<WebSocket>();
+  // Who else talks in this room, in a fixed order, so the client can give each
+  // of them a colour of their own that stays put across reloads.
+  const villains = options.chatter ? VILLAINS.map((villain) => villain.author) : [];
 
   const send = (socket: WebSocket, frame: unknown): void => {
     if (socket.readyState === socket.OPEN) socket.send(JSON.stringify(frame));
@@ -109,6 +112,7 @@ export function createChatServer(options: ChatServerOptions = {}): ChatServer {
     if (url.pathname === "/api/messages") {
       sendJson(res, 200, {
         author,
+        villains,
         cursor: store.cursor,
         messages: store.recent(HISTORY_LIMIT),
       });

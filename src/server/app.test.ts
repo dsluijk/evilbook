@@ -5,7 +5,7 @@ import { after, before, test } from "node:test";
 import WebSocket from "ws";
 
 import { createChatServer, RESET_CLOSE_CODE, type ChatServer } from "./app.ts";
-import { RETRACTIONS } from "./villains.ts";
+import { RETRACTIONS, VILLAINS } from "./villains.ts";
 
 const AUTHOR = "kiosk";
 
@@ -213,6 +213,23 @@ test("a deployment that configures no name falls back to a placeholder", async (
     assert.equal(((await res.json()) as any).author, "anon");
   } finally {
     await plain.close();
+  }
+});
+
+test("history lists the villains only while they are chatting", async () => {
+  assert.deepEqual((await history()).villains, [], "a quiet room has no one else in it");
+
+  const chatty = createChatServer({ author: AUTHOR, chatter: { backlog: 0 } });
+  await new Promise<void>((resolve) => chatty.server.listen(0, resolve));
+
+  try {
+    const res = await fetch(`http://localhost:${(chatty.server.address() as AddressInfo).port}/api/messages`);
+    assert.deepEqual(
+      ((await res.json()) as any).villains,
+      VILLAINS.map((villain) => villain.author),
+    );
+  } finally {
+    await chatty.close();
   }
 });
 
