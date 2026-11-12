@@ -114,16 +114,22 @@ export class ChatView {
     stamp.dateTime = new Date(message.ts).toISOString();
     stamp.textContent = time.format(message.ts);
 
+    const body = document.createElement("p");
+    body.className = "message__text";
+    body.textContent = message.text;
+
+    // Only our own messages can be deleted; the server refuses anything else.
+    if (message.author !== this.#self) {
+      item.append(author, stamp, body);
+      return item;
+    }
+
     const remove = document.createElement("button");
     remove.type = "button";
     remove.className = "message__delete";
     remove.textContent = "×";
     remove.title = "Delete this message";
-    remove.setAttribute("aria-label", `Delete message from ${message.author}`);
-
-    const body = document.createElement("p");
-    body.className = "message__text";
-    body.textContent = message.text;
+    remove.setAttribute("aria-label", "Delete your message");
 
     item.append(author, stamp, remove, body);
     return item;

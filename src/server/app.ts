@@ -10,7 +10,7 @@ import { startChatter, VILLAINS, type ChatterOptions } from "./villains.ts";
 
 const HISTORY_LIMIT = 100;
 
-const DEFAULT_AUTHOR = "anon";
+const DEFAULT_AUTHOR = "J. Bond";
 
 /** Sent instead of a backlog when a cursor is missing or names no record we
  *  hold. The client mirrors this constant in src/client/main.ts. */
@@ -40,16 +40,6 @@ const MIME: Record<string, string> = {
   ".ico": "image/x-icon",
   ".json": "application/json; charset=utf-8",
 };
-
-/**
- * Placeholder. Every socket in a deployment posts under the same
- * server-configured author, so nothing yet distinguishes one client's messages
- * from another's. This is the seam where per-identity ownership lands; until
- * then every request is allowed.
- */
-export function canDelete(message: any, requester: string): boolean {
-  return true;
-}
 
 function sendJson(res: ServerResponse, status: number, body: unknown): void {
   const payload = JSON.stringify(body);
@@ -188,8 +178,11 @@ export function createChatServer(options: ChatServerOptions = {}): ChatServer {
         case "delete": {
           if (typeof frame.id !== "string") return;
 
+          // Only a message's author may delete it. Every socket posts under the
+          // same name, so any tab can delete what another sent — but never what
+          // the villains said.
           const target = store.live(frame.id);
-          if (target === undefined || !canDelete(target, author)) return;
+          if (target === undefined || target.author !== author) return;
 
           const record = store.delete(target.id, author);
           if (record !== null) broadcast(record);

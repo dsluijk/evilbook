@@ -7,7 +7,7 @@ services:
       PORT: 8080
       # The name this deployment posts under. There is no way to change it from the
       # browser, so it is set once here.
-      AUTHOR: ${AUTHOR:-anon}
+      AUTHOR: "${AUTHOR:-J. Bond}"
       # Fake villains post into the chat every few seconds. Set to "off" to silence them.
       CHATTER: ${CHATTER:-on}
       # The CTF flag, planted in the villains' startup backlog. Needs CHATTER on.

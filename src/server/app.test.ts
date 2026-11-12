@@ -207,10 +207,10 @@ test("a deployment that configures no name falls back to a placeholder", async (
   await new Promise<void>((resolve) => plain.server.listen(0, resolve));
 
   try {
-    assert.equal(plain.author, "anon");
+    assert.equal(plain.author, "J. Bond");
 
     const res = await fetch(`http://localhost:${(plain.server.address() as AddressInfo).port}/api/messages`);
-    assert.equal(((await res.json()) as any).author, "anon");
+    assert.equal(((await res.json()) as any).author, "J. Bond");
   } finally {
     await plain.close();
   }
@@ -281,6 +281,63 @@ test("a delete is streamed to every client as a record of its own", async () => 
   sender.socket.close();
   listener.socket.close();
   await Promise.all([closed(sender.socket), closed(listener.socket)]);
+});
+
+test("any tab may delete a message another tab sent, since they post under one name", async () => {
+  const sender = join();
+  await opened(sender.socket);
+  await sender.waitFor((frames) => frames.some((f) => f.type === "sync"));
+
+  const other = join();
+  await opened(other.socket);
+  await other.waitFor((frames) => frames.some((f) => f.type === "sync"));
+
+  sender.socket.send(JSON.stringify({ type: "send", text: "not yours, but still ours" }));
+  await other.waitFor((frames) => frames.some((f) => f.type === "message"));
+
+  const posted = other.frames.find((f) => f.type === "message")!;
+  other.socket.send(JSON.stringify({ type: "delete", id: posted.id }));
+  await sender.waitFor((frames) => deletes(frames).length >= 1);
+  assert.equal(deletes(sender.frames)[0]!.target, posted.id);
+
+  sender.socket.close();
+  other.socket.close();
+  await Promise.all([closed(sender.socket), closed(other.socket)]);
+});
+
+test("a villain's message cannot be deleted", async () => {
+  const villains = createChatServer({
+    author: AUTHOR,
+    chatter: { backlog: 6, minDelayMs: 60_000, maxDelayMs: 60_000 },
+  });
+  await new Promise<void>((resolve) => villains.server.listen(0, resolve));
+  const { port } = villains.server.address() as AddressInfo;
+
+  try {
+    const snapshot = (await (await fetch(`http://localhost:${port}/api/messages`)).json()) as any;
+    const target = snapshot.messages.at(-1);
+    assert.notEqual(target.author, AUTHOR);
+
+    const socket = new WebSocket(`ws://localhost:${port}/ws?since=${snapshot.cursor}`);
+    const frames: any[] = [];
+    socket.on("message", (data) => frames.push(JSON.parse(data.toString())));
+    await opened(socket);
+
+    socket.send(JSON.stringify({ type: "delete", id: target.id }));
+    socket.send(JSON.stringify({ type: "send", text: "after" }));
+    await new Promise<void>((resolve) => {
+      const check = () => (frames.some((f) => f.text === "after") ? resolve() : setTimeout(check, 10));
+      check();
+    });
+
+    assert.deepEqual(deletes(frames), [], "no delete record was made");
+    assert.ok(villains.store.live(target.id), "and the villain's line still stands");
+
+    socket.close();
+    await closed(socket);
+  } finally {
+    await villains.close();
+  }
 });
 
 test("GET /api/messages resolves deletes away, but its cursor still names them", async () => {

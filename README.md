@@ -84,10 +84,10 @@ Deletes are idempotent and unordered-safe by construction. An unknown or already
 target appends nothing, and a delete whose target the client never rendered is a no-op
 rather than an error.
 
-Who may delete what is a placeholder — `canDelete()` in `src/server/app.ts` returns true
-for everyone. Every socket in a deployment posts under the same server-configured author,
-so there is nothing yet to distinguish one client's messages from another's; that function
-is the seam where per-identity ownership lands.
+Only a message's author may delete it — the server compares the two names before
+appending a delete. Every socket in a deployment posts under the same server-configured author, so
+any tab or browser can delete what another one sent, but nobody can delete a villain's
+line. The client only draws a delete button on messages posted under its own name.
 
 The log is never trimmed, so a cursor stays usable for the life of the process. A restart
 is the one way to lose it: history lives in memory, so a fresh process holds no message
@@ -121,7 +121,7 @@ against).
 Receive-only resilience. Outgoing messages are **not** queued while offline — the
 composer is disabled instead, so the UI never accepts text it would drop. History is
 in-memory and does not survive a restart; the `4000` close is what makes that safe
-rather than confusing. Deletes are not moderation — `canDelete()` is a stub.
+rather than confusing. Deletes are not moderation — ownership is by name, not by session.
 
 ## Layout
 
@@ -145,7 +145,7 @@ npm run build      client -> dist/
 npm start          serves dist/ and the API from :8080
 ```
 
-`AUTHOR` sets the name messages are posted under (default `anon`). It is deliberately
+`AUTHOR` sets the name messages are posted under (default `J. Bond`). It is deliberately
 server config: the browser has no way to set or override it, and the server ignores any
 name a client sends, so every message from a deployment carries the same one.
 
