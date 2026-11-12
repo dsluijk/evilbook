@@ -153,12 +153,19 @@ AUTHOR=dany npm start
 ```
 
 `CHATTER` controls the fake conversation. By default a cabal of villains posts into the
-chat every 2-8 seconds, through the same log as real messages, so their lines resume,
+chat every 2-10 seconds, through the same log as real messages, so their lines resume,
 replay and delete like anything else. A fresh server starts with 25 of their lines
 already posted, backdated as if the conversation had been going for a few minutes.
-About one post in thirty, a villain says something they shouldn't, deletes it 4-10
+About one post in ten, a villain says something they shouldn't, deletes it 2-6
 seconds later and posts a follow-up; the startup backlog always contains one of these.
 `CHATTER=off npm start` silences them. The lines live in `src/server/villains.ts`.
+
+`FLAG` sets the CTF flag. It is planted in the villains' startup backlog, so it needs
+`CHATTER` on; the startup log says "flag planted" when it is.
+
+```
+FLAG='CTF{...}' npm start
+```
 
 ## Docker
 

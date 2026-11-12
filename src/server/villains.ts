@@ -375,6 +375,19 @@ export const RETRACTIONS: ReadonlyArray<{
   },
 ];
 
+/**
+ * The backlog retraction that carries the CTF flag. It is only ever posted
+ * into the startup backlog, and deleted there too, so by the time the server
+ * takes its first request it is already gone from history.
+ */
+export function flagRetraction(flag: string): (typeof RETRACTIONS)[number] {
+  return {
+    author: "Cipher",
+    text: `note to self, override for the vault console: ${flag}`,
+    followUp: "wrong window. that was not for this channel.",
+  };
+}
+
 /** Where chatter lands. `post` returns the id of the message it appended, so
  *  a retraction can name it when it is deleted. */
 export type ChatterSink = {
@@ -388,6 +401,10 @@ export type ChatterOptions = {
   /** Lines posted the moment chatter starts, so a fresh server already has a
    *  conversation in progress. One of them is always a retraction. */
   backlog?: number;
+  /** Planted in the backlog as a retraction of its own, ahead of the usual
+   *  one. Never posted live, and never the first line of the backlog, so it
+   *  needs a backlog of at least two lines. */
+  flag?: string;
   /** Chance that a live post is a retraction rather than an ordinary line. */
   retractChance?: number;
   /** How long a retracted line stays up before it is deleted. */
@@ -421,6 +438,7 @@ export function startChatter(
     minRetractMs = DEFAULT_MIN_RETRACT_MS,
     maxRetractMs = DEFAULT_MAX_RETRACT_MS,
     random = Math.random,
+    flag,
   } = options;
 
   const all = VILLAINS.flatMap(({ author, lines }) =>
@@ -480,13 +498,22 @@ export function startChatter(
   // Posted all at once, but dated as if it had trickled in at the usual pace,
   // the newest line landing now. One slot in the older half is a retraction,
   // so a fresh server already holds a deleted message; its delete is dated a
-  // little later and slots in among the lines that followed it.
+  // little later and slots in among the lines that followed it. The flag, if
+  // any, takes another slot in the older half the same way, but never the
+  // first: it should not be the opening line of the log.
   const now = Date.now();
   const gaps = Array.from({ length: backlog }, () =>
     between(minDelayMs, maxDelayMs),
   );
-  const retracted =
-    backlog > 0 ? Math.floor(random() * Math.ceil(backlog / 2)) : -1;
+  const older = shuffle(
+    Array.from({ length: Math.ceil(backlog / 2) }, (_, i) => i),
+    random,
+  );
+  const flagged =
+    flag === undefined || backlog < 2
+      ? -1
+      : (older.find((i) => i > 0) ?? 1);
+  const retracted = older.find((i) => i !== flagged) ?? -1;
   const events: Array<{ ts: number; run: () => void }> = [];
   let ts = now - gaps.reduce((sum, gap) => sum + gap, 0);
 
@@ -494,13 +521,15 @@ export function startChatter(
     ts += gap;
     const at = Math.round(ts);
 
-    if (i !== retracted) {
+    if (i !== retracted && i !== flagged) {
       const line = draw();
       events.push({ ts: at, run: () => sink.post(line.author, line.text, at) });
       return;
     }
 
-    const { author, text, followUp } = drawRetraction();
+    const { author, text, followUp } =
+      i === flagged ? flagRetraction(flag!) : drawRetraction();
+    last = author;
     const gone = Math.min(
       now,
       Math.round(at + between(minRetractMs, maxRetractMs)),

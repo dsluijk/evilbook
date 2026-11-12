@@ -3,15 +3,16 @@ import { createChatServer } from "./app.ts";
 const PORT = Number(process.env.PORT ?? 8080);
 const AUTHOR = process.env.AUTHOR ?? "";
 const CHATTER = process.env.CHATTER !== "off";
+const FLAG = process.env.FLAG || undefined;
 
 const app = createChatServer({
   author: AUTHOR,
-  chatter: CHATTER ? {} : undefined,
+  chatter: CHATTER ? { flag: FLAG } : undefined,
 });
 
 app.server.listen(PORT, () => {
   console.log(
-    `chatchal on http://localhost:${PORT} (posting as ${app.author}${CHATTER ? ", villains chatting" : ""})`,
+    `chatchal on http://localhost:${PORT} (posting as ${app.author}${CHATTER ? ", villains chatting" : ""}${CHATTER && FLAG ? ", flag planted" : ""})`,
   );
 });
 

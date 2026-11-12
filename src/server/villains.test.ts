@@ -2,7 +2,13 @@ import assert from "node:assert/strict";
 import { mock, test } from "node:test";
 
 import { MAX_AUTHOR_LENGTH, MAX_TEXT_LENGTH } from "./store.ts";
-import { RETRACTIONS, startChatter, VILLAINS, type ChatterSink } from "./villains.ts";
+import {
+  flagRetraction,
+  RETRACTIONS,
+  startChatter,
+  VILLAINS,
+  type ChatterSink,
+} from "./villains.ts";
 
 const total = VILLAINS.reduce((sum, { lines }) => sum + lines.length, 0);
 
@@ -42,7 +48,7 @@ test("every line fits what the store would accept", () => {
   }
 
   const authors = new Set(VILLAINS.map(({ author }) => author));
-  for (const { author, text, followUp } of RETRACTIONS) {
+  for (const { author, text, followUp } of [...RETRACTIONS, flagRetraction("CTF{x}")]) {
     assert.ok(authors.has(author), `${author} is not one of the villains`);
     assert.ok(fits(text), text);
     assert.ok(fits(followUp), followUp);
@@ -144,6 +150,58 @@ test("starts with a backdated backlog holding exactly one retraction", (t) => {
   assert.equal(new Set(chat.posts().map((post) => post.text)).size, 12, "live chatter repeats nothing");
 
   stop();
+});
+
+test("the flag is posted and deleted in the backlog, and never live", (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+
+  const flag = "CTF{test_flag}";
+  const chat = recorder();
+  const before = Date.now();
+  const stop = startChatter(chat.sink, {
+    minDelayMs: 1000,
+    maxDelayMs: 1000,
+    backlog: 10,
+    retractChance: 0,
+    minRetractMs: 1500,
+    maxRetractMs: 1500,
+    flag,
+    random: seeded(5),
+  });
+
+  // The flag and the usual retraction each add a follow-up and a delete.
+  assert.equal(chat.posts().length, 12);
+  assert.equal(chat.removes().length, 2);
+
+  const planted = chat.posts().filter((post) => post.text.includes(flag));
+  assert.equal(planted.length, 1);
+  const removal = chat.removes().find((entry) => entry.id === planted[0]!.id);
+  assert.ok(removal, "the flag is deleted before chatter returns");
+  assert.ok(removal.ts < before, "and dated before startup");
+  assert.equal(
+    chat.log[chat.log.indexOf(removal) + 1]!.kind === "post" &&
+      (chat.log[chat.log.indexOf(removal) + 1] as any).text,
+    flagRetraction(flag).followUp,
+  );
+
+  t.mock.timers.tick(1000);
+  t.mock.timers.tick(1000);
+  assert.equal(chat.posts().filter((post) => post.text.includes(flag)).length, 1);
+
+  stop();
+});
+
+test("the flag is never the first line of the backlog", () => {
+  const flag = "CTF{not_first}";
+  for (const backlog of [2, 3, 4, 10, 25]) {
+    for (let seed = 1; seed <= 200; seed++) {
+      const chat = recorder();
+      startChatter(chat.sink, { backlog, retractChance: 0, flag, random: seeded(seed) })();
+
+      const at = chat.log.findIndex((entry) => entry.kind === "post" && entry.text.includes(flag));
+      assert.ok(at > 0, `backlog ${backlog}, seed ${seed}: flag at ${at}`);
+    }
+  }
 });
 
 test("a live retraction is deleted after the window, then followed up", (t) => {

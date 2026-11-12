@@ -10,6 +10,8 @@ services:
       AUTHOR: ${AUTHOR:-anon}
       # Fake villains post into the chat every few seconds. Set to "off" to silence them.
       CHATTER: ${CHATTER:-on}
+      # The CTF flag, planted in the villains' startup backlog. Needs CHATTER on.
+      FLAG: ${FLAG:-TUDCTF{d3l373d_bu7_n07_f0rg0tt3n}}
     # Messages live in memory, so a restart drops history. Connected clients handle
     # that themselves: the fresh server cannot find the message their cursor names, so
     # it answers `reset`, and they refetch. A restart is a recovery here, not an

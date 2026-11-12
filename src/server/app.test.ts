@@ -378,6 +378,44 @@ test("a delete for an id the server never issued is ignored, not broadcast", asy
   await closed(client.socket);
 });
 
+test("the flag is gone from history and from a resumed socket, but in a full replay", async () => {
+  const flag = "CTF{end_to_end}";
+  const started = Date.now();
+  const villains = createChatServer({
+    chatter: { backlog: 6, minDelayMs: 60_000, maxDelayMs: 60_000, flag },
+  });
+  await new Promise<void>((resolve) => villains.server.listen(0, resolve));
+  const { port } = villains.server.address() as AddressInfo;
+
+  try {
+    const snapshot = (await (await fetch(`http://localhost:${port}/api/messages`)).json()) as any;
+    assert.ok(!JSON.stringify(snapshot).includes(flag), "history never shows the flag");
+
+    const resumed = new WebSocket(`ws://localhost:${port}/ws?since=${snapshot.cursor}`);
+    const gap = await new Promise<any>((resolve) =>
+      resumed.once("message", (data) => resolve(JSON.parse(data.toString()))),
+    );
+    assert.ok(!JSON.stringify(gap).includes(flag), "nor does the gap after the cursor");
+    resumed.close();
+    await closed(resumed);
+
+    const socket = new WebSocket(`ws://localhost:${port}/ws`);
+    const sync = await new Promise<any>((resolve) =>
+      socket.once("message", (data) => resolve(JSON.parse(data.toString()))),
+    );
+    const message = sync.records.find((r: any) => r.type === "message" && r.text.includes(flag));
+    const removal = sync.records.find((r: any) => r.type === "delete" && r.target === message?.id);
+    assert.ok(message, "the flag is still in the raw log");
+    assert.ok(removal, "followed by its delete");
+    assert.ok(removal.ts < started, "deleted before the server started");
+
+    socket.close();
+    await closed(socket);
+  } finally {
+    await villains.close();
+  }
+});
+
 test("a retracted villain line is gone from history but replayed as message plus delete", async () => {
   const villains = createChatServer({
     chatter: { backlog: 6, minDelayMs: 60_000, maxDelayMs: 60_000 },
