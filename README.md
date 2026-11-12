@@ -76,7 +76,7 @@ unrenders, landing on exactly the resolved set.
 Deletes are idempotent and unordered-safe by construction. An unknown, already-deleted or
 evicted target appends nothing, and a delete whose target the client never rendered is a
 no-op rather than an error. Eviction cannot resurrect anything either: a delete record is
-always appended *after* its target, and the buffer drops from the front, so the message
+always appended _after_ its target, and the buffer drops from the front, so the message
 ages out first.
 
 Who may delete what is a placeholder — `canDelete()` in `src/server/app.ts` returns true
@@ -103,14 +103,14 @@ upgrade time, which is where a header would have been read anyway.
 
 All of this lives in [`src/client/connection.ts`](src/client/connection.ts):
 
-| Failure | Response |
-| --- | --- |
-| Socket closes | Reconnect with exponential backoff (500ms → 15s, ±20% jitter) |
-| Network returns / tab refocused | Skip the remaining backoff and retry immediately |
-| Connection dies without closing | A 60s silence watchdog forces the close the network never sent |
-| Server restarted, or cursor evicted | Closed with `4000` → drop the cursor, reconnect, replay |
-| A message was deleted while away | The backlog carries the delete record; the client unrenders it |
-| Replayed record already applied | Dropped — ids already applied are tracked in a set |
+| Failure                             | Response                                                       |
+| ----------------------------------- | -------------------------------------------------------------- |
+| Socket closes                       | Reconnect with exponential backoff (500ms → 15s, ±20% jitter)  |
+| Network returns / tab refocused     | Skip the remaining backoff and retry immediately               |
+| Connection dies without closing     | A 60s silence watchdog forces the close the network never sent |
+| Server restarted, or cursor evicted | Closed with `4000` → drop the cursor, reconnect, replay        |
+| A message was deleted while away    | The backlog carries the delete record; the client unrenders it |
+| Replayed record already applied     | Dropped — ids already applied are tracked in a set             |
 
 The server pairs a protocol-level ping (to reap sockets it can no longer reach) with an
 application-level heartbeat every 25s (so the client has something to measure silence
@@ -130,6 +130,7 @@ is retained only until it is evicted.
 src/shared/protocol.ts   wire format, imported by both sides
 src/server/store.ts      ring buffer, cursor lookup
 src/server/app.ts        HTTP + WebSocket + broadcast hub
+src/server/villains.ts   fake villain chatter posted at random
 src/server/index.ts      entry point
 src/client/connection.ts reconnecting, resuming socket
 src/client/ui.ts         rendering
@@ -155,6 +156,11 @@ AUTHOR=dany npm start
 
 `CAPACITY` sets how many messages are retained (default 500). Dropping it low is the
 easiest way to exercise the eviction path: `CAPACITY=5 npm start`.
+
+`CHATTER` controls the fake conversation. By default a cabal of villains posts into the
+chat every 5-20 seconds, through the same log as real messages, so their lines resume,
+replay and delete like anything else. `CHATTER=off npm start` silences them. The lines
+live in `src/server/villains.ts`.
 
 ## Docker
 

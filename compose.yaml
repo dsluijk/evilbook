@@ -12,6 +12,8 @@ services:
       # told to refetch rather than served a gap. Override it to exercise that path:
       #   CAPACITY=5 docker compose up -d --force-recreate
       CAPACITY: ${CAPACITY:-500}
+      # Fake villains post into the chat every few seconds. Set to "off" to silence them.
+      CHATTER: ${CHATTER:-on}
     # Messages live in memory, so a restart drops history. Connected clients handle
     # that themselves: the fresh server cannot find the message their cursor names, so
     # it answers `reset`, and they refetch. A restart is a recovery here, not an

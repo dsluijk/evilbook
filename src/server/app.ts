@@ -11,6 +11,7 @@ import {
   MAX_TEXT_LENGTH,
   MessageStore,
 } from "./store.ts";
+import { startChatter, type ChatterOptions } from "./villains.ts";
 
 const HISTORY_LIMIT = 100;
 
@@ -23,6 +24,9 @@ export const RESET_CLOSE_CODE = 4000;
 export type ChatServerOptions = {
   capacity?: number;
   author?: string;
+  /** Villains post into the log at random, as if other people were chatting.
+   *  Off unless given. */
+  chatter?: ChatterOptions;
 };
 
 export type ChatServer = {
@@ -122,6 +126,12 @@ export function createChatServer(options: ChatServerOptions = {}): ChatServer {
 
   const wss = new WebSocketServer({ server, path: "/ws" });
 
+  // Goes through the same append-and-broadcast path as a real send, so fake
+  // messages are cursors, replay and delete like any other.
+  const stopChatter = options.chatter
+    ? startChatter((who, text) => broadcast(store.append(who, text)), options.chatter)
+    : () => {};
+
   wss.on("connection", (socket, req) => {
     const url = new URL(req.url ?? "/ws", "http://localhost");
     const since = url.searchParams.get("since");
@@ -178,6 +188,7 @@ export function createChatServer(options: ChatServerOptions = {}): ChatServer {
     author,
     close: () =>
       new Promise((resolve, reject) => {
+        stopChatter();
         for (const client of clients) client.close(1001, "server shutting down");
         wss.close(() => server.close((error) => (error ? reject(error) : resolve())));
       }),
