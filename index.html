@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>chatchal</title>
+  </head>
+  <body>
+    <main class="chat">
+      <header class="chat__header">
+        <h1>chatchal</h1>
+        <span id="identity" class="identity" title="Messages from this server are posted under this name"></span>
+      </header>
+
+      <div class="status" id="status" data-state="connecting" role="status" aria-live="polite">
+        <span class="status__dot" aria-hidden="true"></span>
+        <span class="status__text" id="status-text">Connecting…</span>
+      </div>
+
+      <ol class="messages" id="messages"></ol>
+
+      <form class="composer" id="composer">
+        <input
+          type="text"
+          id="input"
+          class="composer__input"
+          placeholder="Write a message…"
+          autocomplete="off"
+          maxlength="2000"
+        />
+        <button type="submit" class="composer__send" id="send">Send</button>
+      </form>
+    </main>
+
+    <script type="module" src="/src/client/main.ts"></script>
+  </body>
+</html>

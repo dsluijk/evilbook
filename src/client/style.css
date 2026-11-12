@@ -1,0 +1,241 @@
+:root {
+  --bg: #fbfbfd;
+  --surface: #ffffff;
+  --border: #e3e3e8;
+  --text: #1a1a1f;
+  --muted: #71717a;
+  --accent: #3b5bdb;
+  --online: #2f9e44;
+  --connecting: #f08c00;
+  --offline: #e03131;
+
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #131316;
+    --surface: #1c1c20;
+    --border: #2e2e35;
+    --text: #ececf1;
+    --muted: #9b9ba4;
+    --accent: #7c93f5;
+    --online: #51cf66;
+    --connecting: #ffc078;
+    --offline: #ff8787;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  display: flex;
+  justify-content: center;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.chat {
+  display: flex;
+  flex-direction: column;
+  width: min(100%, 44rem);
+  height: 100dvh;
+  background: var(--surface);
+  border-inline: 1px solid var(--border);
+}
+
+.chat__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1.1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.chat__header h1 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.identity {
+  padding: 0.3rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.5rem 1.1rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.status__dot {
+  flex: none;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.status[data-state="online"] .status__dot {
+  background: var(--online);
+}
+
+.status[data-state="connecting"] .status__dot {
+  background: var(--connecting);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+.status[data-state="offline"] .status__dot {
+  background: var(--offline);
+}
+
+.status[data-state="offline"] {
+  color: var(--offline);
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.3;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .status[data-state="connecting"] .status__dot {
+    animation: none;
+  }
+}
+
+.messages {
+  flex: 1;
+  overflow-y: auto;
+  margin: 0;
+  padding: 1rem 1.1rem;
+  list-style: none;
+  overflow-wrap: anywhere;
+}
+
+.message {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0 0.5rem;
+  padding: 0.35rem 0;
+}
+
+.message__author {
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.message__time {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  align-self: center;
+}
+
+.message__text {
+  grid-column: 1 / -1;
+  margin: 0.1rem 0 0;
+  white-space: pre-wrap;
+}
+
+.message__delete {
+  display: grid;
+  place-items: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  padding: 0;
+  border: none;
+  border-radius: 0.3rem;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease-in-out;
+}
+
+.message:hover .message__delete,
+.message:focus-within .message__delete {
+  opacity: 1;
+}
+
+.message__delete:hover {
+  color: var(--offline);
+}
+
+.message__delete:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  opacity: 1;
+}
+
+/* Nothing hovers on a touchscreen, so never hide it there. */
+@media (hover: none) {
+  .message__delete {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .message__delete {
+    transition: none;
+  }
+}
+
+.composer {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.85rem 1.1rem;
+  border-top: 1px solid var(--border);
+}
+
+.composer__input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.55rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--bg);
+  color: inherit;
+  font: inherit;
+}
+
+.composer__input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.composer__send {
+  padding: 0.55rem 1.1rem;
+  border: none;
+  border-radius: 0.5rem;
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.composer__input:disabled,
+.composer__send:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}

@@ -1,0 +1,396 @@
+import assert from "node:assert/strict";
+import type { AddressInfo } from "node:net";
+import { after, before, test } from "node:test";
+
+import WebSocket from "ws";
+
+import { createChatServer, RESET_CLOSE_CODE, type ChatServer } from "./app.ts";
+
+const AUTHOR = "kiosk";
+
+let app: ChatServer;
+let port: number;
+
+before(async () => {
+  app = createChatServer({ capacity: 5, author: AUTHOR });
+  await new Promise<void>((resolve) => app.server.listen(0, resolve));
+  port = (app.server.address() as AddressInfo).port;
+});
+
+after(() => app.close());
+
+function connect(query: string) {
+  const socket = new WebSocket(`ws://localhost:${port}/ws${query}`);
+  const frames: any[] = [];
+  const waiters: Array<() => void> = [];
+
+  socket.on("message", (data) => {
+    frames.push(JSON.parse(data.toString()));
+    for (const notify of waiters.splice(0)) notify();
+  });
+
+  const waitFor = (predicate: (frames: any[]) => boolean) =>
+    new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error("timed out waiting for frames")), 2000);
+      const check = () => {
+        if (!predicate(frames)) {
+          waiters.push(check);
+          return;
+        }
+        clearTimeout(timer);
+        resolve();
+      };
+      check();
+    });
+
+  return { socket, frames, waitFor };
+}
+
+const opened = (socket: WebSocket) =>
+  new Promise<void>((resolve) => socket.once("open", () => resolve()));
+
+const closed = (socket: WebSocket) =>
+  new Promise<number>((resolve) => socket.once("close", (code) => resolve(code)));
+
+const history = async (): Promise<any> =>
+  (await fetch(`http://localhost:${port}/api/messages`)).json();
+
+function syncFrame(frames: any[]) {
+  const frame = frames.find((f) => f.type === "sync");
+  assert.ok(frame, `expected a sync frame, got ${frames.map((f) => f.type).join(", ")}`);
+  return frame;
+}
+
+const deletes = (frames: any[]) => frames.filter((f) => f.type === "delete");
+
+async function say(...texts: string[]) {
+  const client = connect("");
+  await opened(client.socket);
+  await client.waitFor((frames) => frames.some((f) => f.type === "sync"));
+
+  for (const text of texts) client.socket.send(JSON.stringify({ type: "send", text }));
+  await client.waitFor((frames) => frames.filter((f) => f.type === "message").length >= texts.length);
+
+  client.socket.close();
+  await closed(client.socket);
+}
+
+test("message ids are random and unique, never sequential", async () => {
+  await say("alpha", "beta", "gamma");
+  const { messages } = await history();
+
+  const ids = messages.map((m: any) => m.id);
+  assert.equal(new Set(ids).size, ids.length);
+  for (const id of ids) {
+    assert.match(id, /^[0-9a-f]{8}-[0-9a-f]{4}-/, "ids should be UUIDs, not counters");
+  }
+});
+
+test("a client with no cursor is sent everything retained, not an empty sync", async () => {
+  const client = connect("");
+  await client.waitFor((frames) => frames.length >= 1);
+
+  const sync = syncFrame(client.frames);
+  assert.equal(
+    sync.records.length,
+    app.store.size,
+    "a client holding nothing must not be told it is caught up",
+  );
+
+  client.socket.close();
+  await closed(client.socket);
+});
+
+test("a reconnecting client receives exactly the messages it missed", async () => {
+  const sender = connect("");
+  await opened(sender.socket);
+  await sender.waitFor((frames) => frames.some((f) => f.type === "sync"));
+
+  const listener = connect("");
+  await listener.waitFor((frames) => frames.some((f) => f.type === "sync"));
+
+  sender.socket.send(JSON.stringify({ type: "send", text: "seen" }));
+  await listener.waitFor((frames) => frames.some((f) => f.type === "message"));
+
+  const cursor = app.store.cursor!;
+  listener.socket.close();
+  await closed(listener.socket);
+
+  const missed = ["missed-1", "missed-2", "missed-3"];
+  const sentBefore = sender.frames.filter((f) => f.type === "message").length;
+  for (const text of missed) sender.socket.send(JSON.stringify({ type: "send", text }));
+  await sender.waitFor(
+    (frames) => frames.filter((f) => f.type === "message").length >= sentBefore + missed.length,
+  );
+
+  const resumed = connect(`?since=${cursor}`);
+  await resumed.waitFor((frames) => frames.some((f) => f.type === "sync"));
+
+  assert.deepEqual(
+    syncFrame(resumed.frames).records.map((m: any) => m.text),
+    missed,
+    "the backlog should be the gap, with nothing repeated and nothing dropped",
+  );
+
+  sender.socket.send(JSON.stringify({ type: "send", text: "live" }));
+  await resumed.waitFor((frames) => frames.some((f) => f.type === "message"));
+
+  const live = resumed.frames.filter((f) => f.type === "message");
+  assert.equal(live.length, 1);
+  assert.equal(live[0]!.text, "live");
+
+  sender.socket.close();
+  resumed.socket.close();
+  await Promise.all([closed(sender.socket), closed(resumed.socket)]);
+});
+
+test("an id the server never issued is answered by hanging up", async () => {
+  const client = connect("?since=11111111-2222-3333-4444-555555555555");
+
+  assert.equal(await closed(client.socket), RESET_CLOSE_CODE);
+  assert.deepEqual(client.frames, [], "a doomed socket is sent no backlog at all");
+});
+
+test("a cursor whose message has been evicted is answered by hanging up", async () => {
+  const sender = connect("");
+  await opened(sender.socket);
+  await sender.waitFor((frames) => frames.some((f) => f.type === "sync"));
+
+  const cursor = app.store.cursor!;
+  const flood = 12;
+  for (let i = 0; i < flood; i++) sender.socket.send(JSON.stringify({ type: "send", text: `x${i}` }));
+  await sender.waitFor((frames) => frames.filter((f) => f.type === "message").length >= flood);
+
+  const stale = connect(`?since=${cursor}`);
+  assert.equal(await closed(stale.socket), RESET_CLOSE_CODE);
+  assert.deepEqual(stale.frames, []);
+
+  sender.socket.close();
+  await closed(sender.socket);
+});
+
+test("GET /api/messages returns history paired with the cursor to resume from", async () => {
+  const res = await fetch(`http://localhost:${port}/api/messages`);
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get("cache-control"), "no-store");
+
+  const snapshot = (await res.json()) as any;
+  assert.equal(snapshot.cursor, app.store.cursor, "the cursor names the newest record");
+
+  const resumed = connect(`?since=${snapshot.cursor}`);
+  await resumed.waitFor((frames) => frames.length >= 1);
+  assert.deepEqual(syncFrame(resumed.frames).records, []);
+
+  resumed.socket.close();
+  await closed(resumed.socket);
+});
+
+test("messages are posted under the configured name, whatever the client claims", async () => {
+  const client = connect("?author=impostor");
+  await opened(client.socket);
+  await client.waitFor((frames) => frames.some((f) => f.type === "sync"));
+
+  client.socket.send(JSON.stringify({ type: "send", text: "who am i" }));
+  await client.waitFor((frames) => frames.some((f) => f.type === "message"));
+
+  const broadcast = client.frames.find((f) => f.type === "message")!;
+  assert.equal(broadcast.author, AUTHOR);
+  assert.equal((await history()).author, AUTHOR, "history tells the client who it posts as");
+
+  client.socket.close();
+  await closed(client.socket);
+});
+
+test("a deployment that configures no name falls back to a placeholder", async () => {
+  const plain = createChatServer({ author: "   " });
+  await new Promise<void>((resolve) => plain.server.listen(0, resolve));
+
+  try {
+    assert.equal(plain.author, "anon");
+
+    const res = await fetch(`http://localhost:${(plain.server.address() as AddressInfo).port}/api/messages`);
+    assert.equal(((await res.json()) as any).author, "anon");
+  } finally {
+    await plain.close();
+  }
+});
+
+test("malformed frames and blank messages are ignored, not broadcast", async () => {
+  const client = connect("");
+  await opened(client.socket);
+  await client.waitFor((frames) => frames.some((f) => f.type === "sync"));
+
+  const before = app.store.cursor;
+  client.socket.send("not json");
+  client.socket.send(JSON.stringify({ type: "nonsense" }));
+  client.socket.send(JSON.stringify({ type: "send", text: "   " }));
+  client.socket.send(JSON.stringify({ type: "send", text: "real" }));
+
+  await client.waitFor((frames) => frames.some((f) => f.type === "message"));
+  const broadcast = client.frames.filter((f) => f.type === "message");
+  assert.equal(broadcast.length, 1, "only the real message should have landed");
+  assert.equal(broadcast[0]!.text, "real");
+  assert.notEqual(app.store.cursor, before);
+
+  client.socket.close();
+  await closed(client.socket);
+});
+
+test("a delete is streamed to every client as a record of its own", async () => {
+  const sender = connect("");
+  await opened(sender.socket);
+  await sender.waitFor((frames) => frames.some((f) => f.type === "sync"));
+
+  const listener = connect("");
+  await listener.waitFor((frames) => frames.some((f) => f.type === "sync"));
+
+  sender.socket.send(JSON.stringify({ type: "send", text: "regret" }));
+  await listener.waitFor((frames) => frames.some((f) => f.type === "message"));
+
+  const posted = listener.frames.find((f) => f.type === "message")!;
+  sender.socket.send(JSON.stringify({ type: "delete", id: posted.id }));
+  await listener.waitFor((frames) => deletes(frames).length >= 1);
+
+  const record = deletes(listener.frames)[0]!;
+  assert.equal(record.target, posted.id);
+  assert.notEqual(record.id, posted.id, "the delete is its own record, with its own id");
+  assert.equal(
+    deletes(sender.frames).length,
+    1,
+    "the client that asked for the delete is told about it like everyone else",
+  );
+
+  sender.socket.close();
+  listener.socket.close();
+  await Promise.all([closed(sender.socket), closed(listener.socket)]);
+});
+
+test("GET /api/messages resolves deletes away, but its cursor still names them", async () => {
+  const client = connect("");
+  await opened(client.socket);
+  await client.waitFor((frames) => frames.some((f) => f.type === "sync"));
+
+  client.socket.send(JSON.stringify({ type: "send", text: "doomed" }));
+  await client.waitFor((frames) => frames.some((f) => f.type === "message"));
+
+  const posted = client.frames.find((f) => f.type === "message")!;
+  const before = deletes(client.frames).length;
+  client.socket.send(JSON.stringify({ type: "delete", id: posted.id }));
+  await client.waitFor((frames) => deletes(frames).length > before);
+
+  const snapshot = await history();
+  assert.ok(
+    !snapshot.messages.some((m: any) => m.id === posted.id),
+    "the HTTP snapshot is resolved; the socket stream is not",
+  );
+  assert.ok(
+    !snapshot.messages.some((m: any) => m.type === "delete"),
+    "and it carries no delete records either",
+  );
+  assert.equal(
+    snapshot.cursor,
+    deletes(client.frames).at(-1)!.id,
+    "the cursor names the delete record, which is in no snapshot",
+  );
+
+  const resumed = connect(`?since=${snapshot.cursor}`);
+  await resumed.waitFor((frames) => frames.length >= 1);
+  assert.deepEqual(syncFrame(resumed.frames).records, [], "and it is still usable");
+
+  client.socket.close();
+  resumed.socket.close();
+  await Promise.all([closed(client.socket), closed(resumed.socket)]);
+});
+
+test("a client that missed a delete is sent the delete record, not a gap", async () => {
+  const sender = connect("");
+  await opened(sender.socket);
+  await sender.waitFor((frames) => frames.some((f) => f.type === "sync"));
+
+  sender.socket.send(JSON.stringify({ type: "send", text: "vanishes" }));
+  await sender.waitFor((frames) => frames.some((f) => f.type === "message"));
+
+  const posted = sender.frames.filter((f) => f.type === "message").at(-1)!;
+  const cursor = app.store.cursor!;
+
+  const before = deletes(sender.frames).length;
+  sender.socket.send(JSON.stringify({ type: "delete", id: posted.id }));
+  await sender.waitFor((frames) => deletes(frames).length > before);
+
+  const resumed = connect(`?since=${cursor}`);
+  await resumed.waitFor((frames) => frames.some((f) => f.type === "sync"));
+
+  assert.deepEqual(
+    syncFrame(resumed.frames).records.map((r: any) => [r.type, r.target ?? r.text]),
+    [["delete", posted.id]],
+    "the backlog tells it to unrender what it already has on screen",
+  );
+
+  sender.socket.close();
+  resumed.socket.close();
+  await Promise.all([closed(sender.socket), closed(resumed.socket)]);
+});
+
+test("a client reconnecting without a cursor is replayed, never hung up on again", async () => {
+  const client = connect("?since=11111111-2222-3333-4444-555555555555");
+  assert.equal(await closed(client.socket), RESET_CLOSE_CODE);
+
+  // What the client does next: come back holding nothing.
+  const retried = connect("");
+  await retried.waitFor((frames) => frames.some((f) => f.type === "sync"));
+
+  const records = syncFrame(retried.frames).records;
+  assert.equal(records.length, app.store.size, "it is replayed the whole retained log");
+
+  // Resolve the replay the way the client's apply() does, in order.
+  const live = new Set<string>();
+  for (const record of records) {
+    if (record.type === "delete") live.delete(record.target);
+    else live.add(record.id);
+  }
+
+  assert.deepEqual(
+    [...live],
+    (await history()).messages.map((m: any) => m.id),
+    "and resolving that replay lands on exactly what HTTP would have served",
+  );
+
+  retried.socket.close();
+  await closed(retried.socket);
+});
+
+test("a delete for an id the server never issued is ignored, not broadcast", async () => {
+  const client = connect("");
+  await opened(client.socket);
+  await client.waitFor((frames) => frames.some((f) => f.type === "sync"));
+
+  const before = app.store.cursor;
+  const deletesBefore = deletes(client.frames).length;
+
+  client.socket.send(JSON.stringify({ type: "delete", id: "11111111-2222-3333-4444-555555555555" }));
+  client.socket.send(JSON.stringify({ type: "delete" }));
+  client.socket.send(JSON.stringify({ type: "send", text: "still here" }));
+  await client.waitFor((frames) => frames.some((f) => f.type === "message"));
+
+  assert.equal(deletes(client.frames).length, deletesBefore, "no delete record was made");
+
+  // Deleting the same message twice is one record, not two.
+  const posted = client.frames.filter((f) => f.type === "message").at(-1)!;
+  client.socket.send(JSON.stringify({ type: "delete", id: posted.id }));
+  await client.waitFor((frames) => deletes(frames).length > deletesBefore);
+
+  const after = app.store.cursor;
+  client.socket.send(JSON.stringify({ type: "delete", id: posted.id }));
+  client.socket.send(JSON.stringify({ type: "send", text: "ping" }));
+  await client.waitFor((frames) => frames.some((f) => f.text === "ping"));
+
+  assert.equal(
+    deletes(client.frames).length,
+    deletesBefore + 1,
+    "the second delete of the same message appended nothing",
+  );
+  assert.notEqual(after, before);
+
+  client.socket.close();
+  await closed(client.socket);
+});
