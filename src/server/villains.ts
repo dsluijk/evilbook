@@ -3,7 +3,10 @@
  * is a secure channel. Each line is written for one villain's voice, so lines
  * stay attached to their author rather than being mixed and matched.
  */
-export const VILLAINS: ReadonlyArray<{ author: string; lines: readonly string[] }> = [
+export const VILLAINS: ReadonlyArray<{
+  author: string;
+  lines: readonly string[];
+}> = [
   {
     author: "Baron Krell",
     lines: [
@@ -300,11 +303,15 @@ export const VILLAINS: ReadonlyArray<{ author: string; lines: readonly string[] 
 export type ChatterOptions = {
   minDelayMs?: number;
   maxDelayMs?: number;
+  /** Lines posted the moment chatter starts, so a fresh server already has a
+   *  conversation in progress. */
+  backlog?: number;
   random?: () => number;
 };
 
 const DEFAULT_MIN_DELAY_MS = 2_000;
 const DEFAULT_MAX_DELAY_MS = 8_000;
+const DEFAULT_BACKLOG = 25;
 
 /**
  * Posts a villain line every few seconds until stopped. Lines are drawn from a
@@ -312,12 +319,13 @@ const DEFAULT_MAX_DELAY_MS = 8_000;
  * the same villain never speaks twice in a row while anyone else is available.
  */
 export function startChatter(
-  post: (author: string, text: string) => void,
+  post: (author: string, text: string, ts: number) => void,
   options: ChatterOptions = {},
 ): () => void {
   const {
     minDelayMs = DEFAULT_MIN_DELAY_MS,
     maxDelayMs = DEFAULT_MAX_DELAY_MS,
+    backlog = DEFAULT_BACKLOG,
     random = Math.random,
   } = options;
 
@@ -331,20 +339,34 @@ export function startChatter(
   const draw = () => {
     if (bag.length === 0) bag = shuffle(all, random);
 
-    const index = Math.max(0, bag.findIndex((line) => line.author !== last));
+    const index = Math.max(
+      0,
+      bag.findIndex((line) => line.author !== last),
+    );
     const line = bag.splice(index, 1)[0]!;
     last = line.author;
     return line;
   };
 
+  const delay = () => minDelayMs + random() * (maxDelayMs - minDelayMs);
+
   const schedule = () => {
-    const delay = minDelayMs + random() * (maxDelayMs - minDelayMs);
     timer = setTimeout(() => {
       const line = draw();
-      post(line.author, line.text);
+      post(line.author, line.text, Date.now());
       schedule();
-    }, delay);
+    }, delay());
   };
+
+  // Posted all at once, but dated as if it had trickled in at the usual pace,
+  // the newest line landing now.
+  const gaps = Array.from({ length: backlog }, delay);
+  let ts = Date.now() - gaps.reduce((sum, gap) => sum + gap, 0);
+  for (const gap of gaps) {
+    ts += gap;
+    const line = draw();
+    post(line.author, line.text, Math.round(ts));
+  }
 
   schedule();
   return () => clearTimeout(timer);

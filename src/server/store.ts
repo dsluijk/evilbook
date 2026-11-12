@@ -27,13 +27,14 @@ export class MessageStore {
     return this.#records.length;
   }
 
-  append(author: string, text: string): any {
+  /** `ts` defaults to now; chatter backdates its startup backlog. */
+  append(author: string, text: string, ts: number = Date.now()): any {
     return this.#push({
       type: "message",
       id: randomUUID(),
       author: author.slice(0, MAX_AUTHOR_LENGTH),
       text: text.slice(0, MAX_TEXT_LENGTH),
-      ts: Date.now(),
+      ts,
     });
   }
 

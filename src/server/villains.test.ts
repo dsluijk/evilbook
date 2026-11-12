@@ -30,6 +30,7 @@ test("posts on a timer, never repeats within a round, and stops", (t) => {
   const stop = startChatter((author, text) => posts.push({ author, text }), {
     minDelayMs: 1000,
     maxDelayMs: 1000,
+    backlog: 0,
     random: seeded(7),
   });
 
@@ -58,6 +59,7 @@ test("delays stay within the configured window", (t) => {
   const stop = startChatter((_, text) => posts.push(text), {
     minDelayMs: 2000,
     maxDelayMs: 4000,
+    backlog: 0,
     random: mock.fn(() => 0.5),
   });
 
@@ -65,6 +67,32 @@ test("delays stay within the configured window", (t) => {
   assert.equal(posts.length, 0);
   t.mock.timers.tick(1);
   assert.equal(posts.length, 1);
+
+  stop();
+});
+
+test("starts with a backdated backlog that the live chatter does not repeat", (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+
+  const posts: Array<{ text: string; ts: number }> = [];
+  const before = Date.now();
+  const stop = startChatter((_, text, ts) => posts.push({ text, ts }), {
+    minDelayMs: 1000,
+    maxDelayMs: 1000,
+    backlog: 10,
+    random: seeded(3),
+  });
+  const after = Date.now();
+
+  assert.equal(posts.length, 10);
+  for (let i = 1; i < posts.length; i++) {
+    assert.equal(posts[i]!.ts - posts[i - 1]!.ts, 1000);
+  }
+  assert.ok(posts.at(-1)!.ts >= before && posts.at(-1)!.ts <= after);
+
+  t.mock.timers.tick(1000);
+  assert.equal(posts.length, 11);
+  assert.equal(new Set(posts.map((post) => post.text)).size, 11);
 
   stop();
 });
