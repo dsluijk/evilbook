@@ -12,8 +12,8 @@ const HISTORY_LIMIT = 100;
 
 const DEFAULT_AUTHOR = "anon";
 
-/** Sent instead of a backlog when a cursor names no record we still hold. The
- *  client mirrors this constant in src/client/main.ts. */
+/** Sent instead of a backlog when a cursor is missing or names no record we
+ *  hold. The client mirrors this constant in src/client/main.ts. */
 export const RESET_CLOSE_CODE = 4000;
 
 export type ChatServerOptions = {
@@ -143,10 +143,18 @@ export function createChatServer(options: ChatServerOptions = {}): ChatServer {
     const url = new URL(req.url ?? "/ws", "http://localhost");
     const since = url.searchParams.get("since");
 
+    // A client has to say where it resumes from, and the only place to learn
+    // a cursor is a record it has been shown. Coming in without one is allowed
+    // only while the log is empty, when there is nothing to name.
+    if (since === null && store.size > 0) {
+      socket.close(RESET_CLOSE_CODE, "cursor required");
+      return;
+    }
+
     const result = store.after(since);
     if (!result.ok) {
-      // Hanging up is the whole answer: the client drops its cursor and comes
-      // back without one, and a cursorless backlog is always servable.
+      // Hanging up is the whole answer: the client refetches history, which
+      // hands it a cursor this server does hold.
       socket.close(RESET_CLOSE_CODE, "cursor unusable");
       return;
     }

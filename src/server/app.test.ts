@@ -47,6 +47,9 @@ function connect(query: string) {
   return { socket, frames, waitFor };
 }
 
+/** Connects the way the page does: resuming from the newest record. */
+const join = () => connect(app.store.cursor === null ? "" : `?since=${app.store.cursor}`);
+
 const opened = (socket: WebSocket) =>
   new Promise<void>((resolve) => socket.once("open", () => resolve()));
 
@@ -65,7 +68,7 @@ function syncFrame(frames: any[]) {
 const deletes = (frames: any[]) => frames.filter((f) => f.type === "delete");
 
 async function say(...texts: string[]) {
-  const client = connect("");
+  const client = join();
   await opened(client.socket);
   await client.waitFor((frames) => frames.some((f) => f.type === "sync"));
 
@@ -87,27 +90,42 @@ test("message ids are random and unique, never sequential", async () => {
   }
 });
 
-test("a client with no cursor is sent everything retained, not an empty sync", async () => {
+test("a client with no cursor is hung up on once there is anything to name", async () => {
+  assert.ok(app.store.size > 0);
   const client = connect("");
-  await client.waitFor((frames) => frames.length >= 1);
 
-  const sync = syncFrame(client.frames);
-  assert.equal(
-    sync.records.length,
-    app.store.size,
-    "a client holding nothing must not be told it is caught up",
-  );
+  assert.equal(await closed(client.socket), RESET_CLOSE_CODE);
+  assert.deepEqual(client.frames, [], "it is sent no backlog at all");
 
-  client.socket.close();
-  await closed(client.socket);
+  const blank = connect("?since=");
+  assert.equal(await closed(blank.socket), RESET_CLOSE_CODE, "nor is an empty cursor");
+});
+
+test("an empty log lets a client in without a cursor", async () => {
+  const fresh = createChatServer();
+  await new Promise<void>((resolve) => fresh.server.listen(0, resolve));
+  const { port } = fresh.server.address() as AddressInfo;
+
+  try {
+    const socket = new WebSocket(`ws://localhost:${port}/ws`);
+    const sync = await new Promise<any>((resolve) =>
+      socket.once("message", (data) => resolve(JSON.parse(data.toString()))),
+    );
+    assert.deepEqual(sync, { type: "sync", records: [] });
+
+    socket.close();
+    await closed(socket);
+  } finally {
+    await fresh.close();
+  }
 });
 
 test("a reconnecting client receives exactly the messages it missed", async () => {
-  const sender = connect("");
+  const sender = join();
   await opened(sender.socket);
   await sender.waitFor((frames) => frames.some((f) => f.type === "sync"));
 
-  const listener = connect("");
+  const listener = join();
   await listener.waitFor((frames) => frames.some((f) => f.type === "sync"));
 
   sender.socket.send(JSON.stringify({ type: "send", text: "seen" }));
@@ -169,7 +187,7 @@ test("GET /api/messages returns history paired with the cursor to resume from", 
 });
 
 test("messages are posted under the configured name, whatever the client claims", async () => {
-  const client = connect("?author=impostor");
+  const client = connect(`?since=${app.store.cursor}&author=impostor`);
   await opened(client.socket);
   await client.waitFor((frames) => frames.some((f) => f.type === "sync"));
 
@@ -199,7 +217,7 @@ test("a deployment that configures no name falls back to a placeholder", async (
 });
 
 test("malformed frames and blank messages are ignored, not broadcast", async () => {
-  const client = connect("");
+  const client = join();
   await opened(client.socket);
   await client.waitFor((frames) => frames.some((f) => f.type === "sync"));
 
@@ -220,11 +238,11 @@ test("malformed frames and blank messages are ignored, not broadcast", async () 
 });
 
 test("a delete is streamed to every client as a record of its own", async () => {
-  const sender = connect("");
+  const sender = join();
   await opened(sender.socket);
   await sender.waitFor((frames) => frames.some((f) => f.type === "sync"));
 
-  const listener = connect("");
+  const listener = join();
   await listener.waitFor((frames) => frames.some((f) => f.type === "sync"));
 
   sender.socket.send(JSON.stringify({ type: "send", text: "regret" }));
@@ -249,7 +267,7 @@ test("a delete is streamed to every client as a record of its own", async () => 
 });
 
 test("GET /api/messages resolves deletes away, but its cursor still names them", async () => {
-  const client = connect("");
+  const client = join();
   await opened(client.socket);
   await client.waitFor((frames) => frames.some((f) => f.type === "sync"));
 
@@ -286,7 +304,7 @@ test("GET /api/messages resolves deletes away, but its cursor still names them",
 });
 
 test("a client that missed a delete is sent the delete record, not a gap", async () => {
-  const sender = connect("");
+  const sender = join();
   await opened(sender.socket);
   await sender.waitFor((frames) => frames.some((f) => f.type === "sync"));
 
@@ -314,16 +332,28 @@ test("a client that missed a delete is sent the delete record, not a gap", async
   await Promise.all([closed(sender.socket), closed(resumed.socket)]);
 });
 
-test("a client reconnecting without a cursor is replayed, never hung up on again", async () => {
+test("a client that was hung up on refetches history and resumes from its cursor", async () => {
   const client = connect("?since=11111111-2222-3333-4444-555555555555");
   assert.equal(await closed(client.socket), RESET_CLOSE_CODE);
 
-  // What the client does next: come back holding nothing.
-  const retried = connect("");
+  // What the client does next: refetch, and come back holding that cursor.
+  const snapshot = await history();
+  const retried = connect(`?since=${snapshot.cursor}`);
   await retried.waitFor((frames) => frames.some((f) => f.type === "sync"));
+  assert.deepEqual(syncFrame(retried.frames).records, [], "it is caught up, not hung up on");
 
-  const records = syncFrame(retried.frames).records;
-  assert.equal(records.length, app.store.size, "it is replayed the whole retained log");
+  retried.socket.close();
+  await closed(retried.socket);
+});
+
+test("resuming from an older message replays everything after it, deletes included", async () => {
+  const snapshot = await history();
+  const [oldest, ...rest] = snapshot.messages;
+
+  const replay = connect(`?since=${oldest.id}`);
+  await replay.waitFor((frames) => frames.some((f) => f.type === "sync"));
+  const records = syncFrame(replay.frames).records;
+  assert.ok(deletes(records).length > 0, "the deletes earlier tests made are in the gap");
 
   // Resolve the replay the way the client's apply() does, in order.
   const live = new Set<string>();
@@ -334,16 +364,16 @@ test("a client reconnecting without a cursor is replayed, never hung up on again
 
   assert.deepEqual(
     [...live],
-    (await history()).messages.map((m: any) => m.id),
-    "and resolving that replay lands on exactly what HTTP would have served",
+    rest.map((m: any) => m.id),
+    "and resolving it lands on exactly what HTTP served after that message",
   );
 
-  retried.socket.close();
-  await closed(retried.socket);
+  replay.socket.close();
+  await closed(replay.socket);
 });
 
 test("a delete for an id the server never issued is ignored, not broadcast", async () => {
-  const client = connect("");
+  const client = join();
   await opened(client.socket);
   await client.waitFor((frames) => frames.some((f) => f.type === "sync"));
 
@@ -378,7 +408,7 @@ test("a delete for an id the server never issued is ignored, not broadcast", asy
   await closed(client.socket);
 });
 
-test("the flag is gone from history and from a resumed socket, but in a full replay", async () => {
+test("the flag is gone from history and the newest cursor, but replayed from an older one", async () => {
   const flag = "CTF{end_to_end}";
   const started = Date.now();
   const villains = createChatServer({
@@ -399,7 +429,11 @@ test("the flag is gone from history and from a resumed socket, but in a full rep
     resumed.close();
     await closed(resumed);
 
-    const socket = new WebSocket(`ws://localhost:${port}/ws`);
+    const cursorless = new WebSocket(`ws://localhost:${port}/ws`);
+    assert.equal(await closed(cursorless), RESET_CLOSE_CODE, "there is no full replay");
+
+    // The way in: resume from the oldest message history still shows.
+    const socket = new WebSocket(`ws://localhost:${port}/ws?since=${snapshot.messages[0].id}`);
     const sync = await new Promise<any>((resolve) =>
       socket.once("message", (data) => resolve(JSON.parse(data.toString()))),
     );
@@ -430,7 +464,7 @@ test("a retracted villain line is gone from history but replayed as message plus
     assert.equal(snapshot.messages.length, 6, "six lines and a follow-up, less the one deleted");
     assert.ok(!snapshot.messages.some((m: any) => retracted.has(m.text)));
 
-    const socket = new WebSocket(`ws://localhost:${port}/ws`);
+    const socket = new WebSocket(`ws://localhost:${port}/ws?since=${snapshot.messages[0].id}`);
     const sync = await new Promise<any>((resolve) =>
       socket.once("message", (data) => resolve(JSON.parse(data.toString()))),
     );

@@ -3,8 +3,8 @@ import "./style.css";
 
 const RETRY_DELAY_MS = 1000;
 
-/** The server hangs up with this code when our cursor names no record it still
- *  holds. Mirrors RESET_CLOSE_CODE in src/server/app.ts. */
+/** The server hangs up with this code when our cursor is missing or names no
+ *  record it holds. Mirrors RESET_CLOSE_CODE in src/server/app.ts. */
 const RESET_CLOSE_CODE = 4000;
 
 class Connection {
@@ -15,9 +15,15 @@ class Connection {
   constructor(private readonly view: ChatView) {}
 
   async start(): Promise<void> {
-    const history = await this.#fetchHistory();
-    this.#adopt(history);
-    this.view.replace(history.messages);
+    try {
+      const history = await this.#fetchHistory();
+      this.#adopt(history);
+      this.view.replace(history.messages);
+    } catch {
+      this.view.setStatus("offline");
+      setTimeout(() => void this.start(), RETRY_DELAY_MS);
+      return;
+    }
     this.#connect();
   }
 
@@ -58,14 +64,9 @@ class Connection {
       this.view.setStatus("offline");
 
       if (event.code === RESET_CLOSE_CODE) {
-        // Our cursor is unusable. Drop it and reconnect holding nothing: the
-        // server replays everything it retains, and that replay resolves its
-        // own deletes, so there is nothing to refetch. A cursorless client can
-        // never be hung up on in turn, so this cannot loop.
-        this.#cursor = null;
-        this.#seen.clear();
-        this.view.replace([]);
-        this.#connect();
+        // Our cursor is missing or unusable. Start over from history, which
+        // replaces what is on screen and hands us a cursor the server holds.
+        void this.start();
         return;
       }
 

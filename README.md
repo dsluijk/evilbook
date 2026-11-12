@@ -26,16 +26,17 @@ rendered and hands it back as a cursor on every connect.
 2. The client opens `ws://…/ws?since=<id>`.
 3. The server answers with **exactly one** of:
    - `sync` — here is the gap between your cursor and now, then live traffic follows.
-   - a close with code **4000** — your cursor is unusable; drop it and come back holding
-     nothing.
+   - a close with code **4000** — your cursor is missing or unusable; refetch history
+     and come back with the cursor it hands you.
 
 There is deliberately no third option, and no partial answer. Serving "as much as we
 still have" would leave a hole the client has no way to detect. Failing loudly is what
 keeps the view honest, and hanging up is as loud as this protocol gets: a socket that
 cannot be told the truth is not left open to be told something else.
 
-A cursorless client is replayed the whole retained log, so the recovery needs no HTTP
-round trip — and it cannot loop, because `after(null)` always succeeds.
+A cursor is required. The only time a socket may come in without one is while the log
+is empty, when there is nothing to name; after that, a missing `since` is answered like
+an unknown one.
 
 ### Ordering without ordered ids
 
@@ -90,7 +91,7 @@ is the seam where per-identity ownership lands.
 
 The log is never trimmed, so a cursor stays usable for the life of the process. A restart
 is the one way to lose it: history lives in memory, so a fresh process holds no message
-any old cursor could name — the lookup misses, the client is hung up on, and it replays.
+any old cursor could name — the lookup misses, the client is hung up on, and it refetches.
 
 ### Why the cursor is a query param, not a header
 
@@ -107,7 +108,7 @@ All of this lives in [`src/client/connection.ts`](src/client/connection.ts):
 | Socket closes                       | Reconnect with exponential backoff (500ms → 15s, ±20% jitter)  |
 | Network returns / tab refocused     | Skip the remaining backoff and retry immediately               |
 | Connection dies without closing     | A 60s silence watchdog forces the close the network never sent |
-| Server restarted                    | Closed with `4000` → drop the cursor, reconnect, replay        |
+| Server restarted                    | Closed with `4000` → refetch history, resume from its cursor   |
 | A message was deleted while away    | The backlog carries the delete record; it becomes a tombstone  |
 | Replayed record already applied     | Dropped — ids already applied are tracked in a set             |
 
@@ -181,4 +182,4 @@ has no TypeScript toolchain in it and exactly one runtime dependency, `ws`.
 
 `restart: unless-stopped` is safe here despite history living in memory. A restarted
 server does not hold the records its clients' cursors name, so they are hung up on and
-replay from nothing. That is the ordinary recovery path, not a special case.
+refetch. That is the ordinary recovery path, not a special case.

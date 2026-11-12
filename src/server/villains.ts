@@ -399,7 +399,8 @@ export type ChatterOptions = {
   minDelayMs?: number;
   maxDelayMs?: number;
   /** Lines posted the moment chatter starts, so a fresh server already has a
-   *  conversation in progress. One of them is always a retraction. */
+   *  conversation in progress. One of them is a retraction, but never the
+   *  first, so a backlog of one has none. */
   backlog?: number;
   /** Planted in the backlog as a retraction of its own, ahead of the usual
    *  one. Never posted live, and never the first line of the backlog, so it
@@ -499,21 +500,21 @@ export function startChatter(
   // the newest line landing now. One slot in the older half is a retraction,
   // so a fresh server already holds a deleted message; its delete is dated a
   // little later and slots in among the lines that followed it. The flag, if
-  // any, takes another slot in the older half the same way, but never the
-  // first: it should not be the opening line of the log.
+  // any, takes another slot in the older half the same way. Neither takes the
+  // first slot, so the log always opens with a line that survives: a cursor
+  // that comes before both of them.
   const now = Date.now();
   const gaps = Array.from({ length: backlog }, () =>
     between(minDelayMs, maxDelayMs),
   );
-  const older = shuffle(
-    Array.from({ length: Math.ceil(backlog / 2) }, (_, i) => i),
+  const [first = -1, second = -1] = shuffle(
+    Array.from({ length: Math.ceil(backlog / 2) }, (_, i) => i + 1).filter(
+      (i) => i < backlog,
+    ),
     random,
   );
-  const flagged =
-    flag === undefined || backlog < 2
-      ? -1
-      : (older.find((i) => i > 0) ?? 1);
-  const retracted = older.find((i) => i !== flagged) ?? -1;
+  const flagged = flag === undefined ? -1 : first;
+  const retracted = flag === undefined ? first : second;
   const events: Array<{ ts: number; run: () => void }> = [];
   let ts = now - gaps.reduce((sum, gap) => sum + gap, 0);
 

@@ -191,15 +191,21 @@ test("the flag is posted and deleted in the backlog, and never live", (t) => {
   stop();
 });
 
-test("the flag is never the first line of the backlog", () => {
-  const flag = "CTF{not_first}";
-  for (const backlog of [2, 3, 4, 10, 25]) {
-    for (let seed = 1; seed <= 200; seed++) {
-      const chat = recorder();
-      startChatter(chat.sink, { backlog, retractChance: 0, flag, random: seeded(seed) })();
+test("the backlog always opens with a line that survives", () => {
+  for (const flag of [undefined, "CTF{not_first}"]) {
+    for (const backlog of [2, 3, 4, 10, 25]) {
+      for (let seed = 1; seed <= 200; seed++) {
+        const chat = recorder();
+        startChatter(chat.sink, { backlog, retractChance: 0, flag, random: seeded(seed) })();
 
-      const at = chat.log.findIndex((entry) => entry.kind === "post" && entry.text.includes(flag));
-      assert.ok(at > 0, `backlog ${backlog}, seed ${seed}: flag at ${at}`);
+        const label = `flag ${flag !== undefined}, backlog ${backlog}, seed ${seed}`;
+        const [opening] = chat.log;
+        assert.equal(opening!.kind, "post", label);
+        assert.ok(!chat.removes().some((entry) => entry.id === opening!.id), label);
+        if (flag !== undefined) {
+          assert.ok(chat.posts().some((post) => post.text.includes(flag)), `${label}: flag planted`);
+        }
+      }
     }
   }
 });
