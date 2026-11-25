@@ -186,6 +186,17 @@ test("GET /api/messages returns history paired with the cursor to resume from", 
   await closed(resumed.socket);
 });
 
+test("history is never capped, so its oldest message stays the oldest one held", async () => {
+  for (let i = 0; i < 150; i++) app.store.append(AUTHOR, `bulk ${i}`);
+
+  const { messages } = await history();
+  assert.ok(messages.length >= 150);
+  assert.deepEqual(
+    messages.map((m: any) => m.id),
+    app.store.messages().map((m) => m.id),
+  );
+});
+
 test("messages are posted under the configured name, whatever the client claims", async () => {
   const client = connect(`?since=${app.store.cursor}&author=impostor`);
   await opened(client.socket);

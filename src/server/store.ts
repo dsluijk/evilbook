@@ -51,10 +51,10 @@ export class MessageStore {
     return this.#resolve().find((record) => record.id === id);
   }
 
-  /** The newest surviving messages, oldest first — deletes applied, and never
-   *  the delete records themselves. */
-  recent(limit: number): any[] {
-    return this.#resolve().slice(-limit);
+  /** Every surviving message, oldest first — deletes applied, and never the
+   *  delete records themselves. */
+  messages(): any[] {
+    return this.#resolve();
   }
 
   after(cursor: string | null): CursorResult {

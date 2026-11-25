@@ -17,7 +17,7 @@ test("assigns a random, unique id to every message", () => {
   }
 
   assert.equal(ids.size, 200, "ids must not collide");
-  assert.equal(store.cursor, store.recent(1)[0]!.id, "the cursor is the newest id");
+  assert.equal(store.cursor, store.messages().at(-1)!.id, "the cursor is the newest id");
 });
 
 test("a caught-up cursor returns an empty backlog, not a miss", () => {
@@ -67,15 +67,14 @@ test("an id we never issued is rejected", () => {
   assert.deepEqual(store.after("11111111-2222-3333-4444-555555555555"), { ok: false });
 });
 
-test("recent() returns the newest messages, oldest first", () => {
+test("messages() returns every message, oldest first", () => {
   const store = new MessageStore();
-  for (let i = 1; i <= 10; i++) store.append("a", `m${i}`);
+  for (let i = 1; i <= 500; i++) store.append("a", `m${i}`);
 
-  assert.deepEqual(
-    store.recent(3).map((m) => m.text),
-    ["m8", "m9", "m10"],
-  );
-  assert.equal(store.recent(100).length, 10);
+  const texts = store.messages().map((m) => m.text);
+  assert.equal(texts.length, 500, "there is no cap on history");
+  assert.equal(texts[0], "m1");
+  assert.equal(texts.at(-1), "m500");
 });
 
 test("truncates over-long authors and text rather than rejecting them", () => {
@@ -98,7 +97,7 @@ test("deleting appends a record instead of removing one", () => {
   assert.equal(record.target, doomed.id);
   assert.equal(store.size, 3, "the log grew; nothing was spliced out");
   assert.deepEqual(
-    store.recent(10).map((m) => m.id),
+    store.messages().map((m) => m.id),
     [keep.id],
     "but the deleted message stops surviving",
   );
@@ -163,7 +162,7 @@ test("live() answers whether a message is still standing", () => {
   assert.equal(store.live(message.id), undefined, "a deleted message is not live");
 });
 
-test("recent() counts surviving messages, never delete records", () => {
+test("messages() lists surviving messages, never delete records", () => {
   const store = new MessageStore();
   const ids = [];
   for (let i = 1; i <= 5; i++) ids.push(store.append("a", `m${i}`).id);
@@ -172,13 +171,8 @@ test("recent() counts surviving messages, never delete records", () => {
   store.delete(ids[3]!, "a");
 
   assert.deepEqual(
-    store.recent(10).map((m) => m.text),
+    store.messages().map((m) => m.text),
     ["m1", "m3", "m5"],
-  );
-  assert.deepEqual(
-    store.recent(2).map((m) => m.text),
-    ["m3", "m5"],
-    "the limit applies after deletes are resolved",
   );
 });
 

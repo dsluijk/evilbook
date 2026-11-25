@@ -21,7 +21,7 @@ docker compose up --build    # http://localhost:8080
 Every message gets a random UUID. The client remembers the id of the last message it
 rendered and hands it back as a cursor on every connect.
 
-1. `GET /api/messages` returns recent history, the cursor to resume from, and the name
+1. `GET /api/messages` returns the full history, the cursor to resume from, and the name
    this server posts under.
 2. The client opens `ws://…/ws?since=<id>`.
 3. The server answers with **exactly one** of:

@@ -8,8 +8,6 @@ import { WebSocketServer, type WebSocket } from "ws";
 import { MAX_AUTHOR_LENGTH, MAX_TEXT_LENGTH, MessageStore } from "./store.ts";
 import { startChatter, VILLAINS, type ChatterOptions } from "./villains.ts";
 
-const HISTORY_LIMIT = 100;
-
 const DEFAULT_AUTHOR = "J. Bond";
 
 /** Sent instead of a backlog when a cursor is missing or names no record we
@@ -104,7 +102,7 @@ export function createChatServer(options: ChatServerOptions = {}): ChatServer {
         author,
         villains,
         cursor: store.cursor,
-        messages: store.recent(HISTORY_LIMIT),
+        messages: store.messages(),
       });
       return;
     }
