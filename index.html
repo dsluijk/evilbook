@@ -3,19 +3,28 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Eleven Eyes</title>
+    <title>EvilBook</title>
+    <link rel="icon" type="image/svg+xml" href="/src/client/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Fredoka:wght@700&display=swap"
+    />
   </head>
   <body>
     <main class="chat">
       <header class="chat__header">
-        <div class="chat__title">
-          <span class="stamp" aria-hidden="true">Secure Channel</span>
-          <h1>Eleven Eyes</h1>
-        </div>
-        <p
-          class="identity"
-          title="Messages from this server are posted under this name"
-        >
+        <h1 class="logo" aria-label="EvilBook">
+          <svg class="logo__mark" viewBox="0 0 40 40" aria-hidden="true">
+            <path d="M6 17 C2 11 2 5 4.5 0 C7 6 11 8.5 16 9 Z" />
+            <path d="M34 17 C38 11 38 5 35.5 0 C33 6 29 8.5 24 9 Z" />
+            <rect x="3" y="8" width="34" height="31" rx="9" />
+            <text class="logo__cut" x="20" y="34" text-anchor="middle">e</text>
+          </svg>
+          <span aria-hidden="true">evilbook</span>
+        </h1>
+        <p class="identity">
           <span class="identity__label">Posting as</span>
           <span id="identity" class="identity__name"></span>
         </p>
@@ -29,9 +38,7 @@
         aria-live="polite"
       >
         <span class="status__dot" aria-hidden="true"></span>
-        <span class="status__text" id="status-text"
-          >Establishing secure line…</span
-        >
+        <span class="status__text" id="status-text">Connecting…</span>
       </div>
 
       <ol class="messages" id="messages"></ol>
@@ -41,11 +48,11 @@
           type="text"
           id="input"
           class="composer__input"
-          placeholder="Transmit a message…"
+          placeholder="Message"
           autocomplete="off"
           maxlength="2000"
         />
-        <button type="submit" class="composer__send" id="send">Transmit</button>
+        <button type="submit" class="composer__send" id="send">Send</button>
       </form>
     </main>
 

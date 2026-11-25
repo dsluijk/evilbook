@@ -84,17 +84,16 @@ export class ChatView {
 
     switch (status) {
       case "connecting":
-        this.#statusText.textContent = "Establishing secure line…";
+        this.#statusText.textContent = "Connecting…";
         break;
 
       case "online":
-        this.#statusText.textContent = "Line secure — nobody suspects a thing";
+        this.#statusText.textContent = "Connected";
         this.#input.focus();
         break;
 
       case "offline":
-        this.#statusText.textContent =
-          "Line cut — re-establishing… Anything said meanwhile will be recovered.";
+        this.#statusText.textContent = "Reconnecting…";
         break;
     }
   }
@@ -118,9 +117,18 @@ export class ChatView {
     body.className = "message__text";
     body.textContent = message.text;
 
+    const meta = document.createElement("div");
+    meta.className = "message__meta";
+    meta.append(author, stamp);
+
     // Only our own messages can be deleted; the server refuses anything else.
     if (message.author !== this.#self) {
-      item.append(author, stamp, body);
+      const avatar = document.createElement("span");
+      avatar.className = "message__avatar";
+      avatar.setAttribute("aria-hidden", "true");
+      avatar.textContent = [...String(message.author)][0]?.toUpperCase() ?? "";
+
+      item.append(avatar, meta, body);
       return item;
     }
 
@@ -130,10 +138,10 @@ export class ChatView {
     remove.type = "button";
     remove.className = "message__delete";
     remove.textContent = "×";
-    remove.title = "Delete this message";
-    remove.setAttribute("aria-label", "Delete your message");
+    remove.title = "Delete message";
+    remove.setAttribute("aria-label", "Delete message");
 
-    item.append(author, stamp, remove, body);
+    item.append(meta, remove, body);
     return item;
   }
 
@@ -149,7 +157,7 @@ export class ChatView {
 
     item.classList.add("message--deleted");
     item.querySelector(".message__delete")?.remove();
-    item.querySelector(".message__text")!.textContent = "Redacted by sender";
+    item.querySelector(".message__text")!.textContent = "Redacted";
   }
 
   /** Our own messages wear the accent. A name the server did not list still

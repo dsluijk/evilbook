@@ -1,5 +1,5 @@
 services:
-  eleven-eyes:
+  evilbook:
     build: .
     ports:
       - "${HOST_PORT:-8080}:8080"

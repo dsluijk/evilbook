@@ -1,4 +1,4 @@
-# Eleven Eyes
+# EvilBook
 
 A small chat website built around one property: it tolerates the network failing.
 
@@ -74,8 +74,7 @@ client showing something the server knows is deleted. It also means a replay res
 itself: records arrive in order, so a message followed by its delete renders and then
 collapses to a tombstone, leaving exactly the resolved set's text on screen.
 
-A tombstone keeps the author and time, replaces the text with a "Redacted by
-sender" bar, and flashes briefly so the room sees it happen. The deleted text itself is
+A tombstone keeps the author and time, replaces the text with "Redacted", and flashes briefly so the room sees it happen. The deleted text itself is
 dropped from the page. Tombstones only come from the socket: a fresh page load starts
 from `GET /api/messages`, which has already resolved deletes away, so earlier deletes
 leave no trace there.
